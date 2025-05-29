@@ -10,13 +10,13 @@ interface PadProps {
     name: string | undefined;
     volume: number;
     virtualVolume: number;
-    registerPlayFunction?: (name: string, playFn: () => void) => void;
+    registerPlayFunction?: (name: string, playFn: () => void);
 }
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
 
 const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
-    const primaryAudioRef = useRef<ExtendedAudioElement>(null)
+    const primaryAudioRef = useRef<ExtendedAudioElement>(null) 
     const secondaryAudioRef = useRef<ExtendedAudioElement>(null)
 
     const [shortcutText, setShortcutText] = useState<string>()
@@ -25,7 +25,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const [buttonFocus, setButtonFocus] = useState<boolean>(false)
     const removeListenerRef = useRef<Function>()
 
-
+    
     const setPrimaryOutput = (output : string) => {
         primaryAudioRef.current?.setSinkId(output)
     }
@@ -83,9 +83,9 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             setShortcutText(shortcutString)
             setShortcut(shortcutString)
         }
-
+        
     }
-
+    
     const loadHotkey = () => {
         let key
         if (props.name) key = localStorage.getItem(props.name)
@@ -100,14 +100,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         setShortcut('')
         setShortcutText('')
         loadHotkey()
-    }, [props.name])
-
+    }, [props.name]) 
+    
     useEffect(() =>{
         setPrimaryOutput(props.outputs[0])
         setSecondaryOutput(props.outputs[1])
     }, [props.outputs, props.name])
-
-
+    
+    
     useEffect(() => {
         if (removeListenerRef.current) removeListenerRef.current() // Remove old listener
 
@@ -119,13 +119,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
         props.name && shortcut && localStorage.setItem(props.name, shortcut)
     }, [shortcut])
-
+    
     useEffect(() => {
 
         // Apply logarithmic scaling of linear 0 ... 1 scale to 0 ... 1 logarithmic (not perfectly accurate decibel scale)
         primaryAudioRef.current!.volume = Math.exp((Math.log(props.volume) / Math.log(10)) * 4)
         secondaryAudioRef.current!.volume = Math.exp((Math.log(props.virtualVolume) / Math.log(10)) * 4)
-
+        
     }, [props.volume, props.virtualVolume])
 
     useEffect(() => {
@@ -138,9 +138,9 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     const handleButtonHover = (state: string) => {
         if (state === 'in') {
-            setShortcutText('Rightclick to enter hotkey')
+            setShortcutText('Rightclick to enter hotkey') 
         }
-
+        
         if (state === 'out') {
             setShortcutText(shortcut)
             setButtonFocus(false)
@@ -152,7 +152,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     <div>
         <audio ref={primaryAudioRef} src={ props.source } preload="auto"/>
         <audio ref={secondaryAudioRef} src={ props.source } preload="auto"/>
-        <button onClick={play}
+        <button onClick={play} 
                 className="pad"
                 onContextMenu={handleContext}
                 onMouseOut={() => handleButtonHover('out')}

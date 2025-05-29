@@ -23,7 +23,7 @@ export default class Main {
     static HotkeyEvent : IpcMainEvent
     static tray : Tray
     static Menu : Menu
-    static currentSounds: { name: string, path: string }[] = [];
+    static currentSounds: { name: string, path: string, imagePath?: string }[] = [];
 
     private static onWindowAllClosed() {
         if (process.platform !== 'darwin') {
@@ -133,7 +133,31 @@ export default class Main {
         });
 
         expressApp.get('/get-sounds', (req, res) => {
-            res.json(Main.currentSounds);
+            const soundsWithDataUrls = Main.currentSounds.map(sound => {
+                const responseSound: { name: string, path?: string, imagePath?: string, imageDataUrl?: string } = { 
+                    name: sound.name,
+                    // Optionally include path and imagePath if needed by client, for now, focusing on name and imageDataUrl
+                    // path: sound.path, 
+                    // imagePath: sound.imagePath 
+                };
+                if (sound.imagePath) {
+                    try {
+                        const imageBuffer = fs.readFileSync(sound.imagePath);
+                        const mimeType = mime.getType(sound.imagePath);
+                        if (mimeType) {
+                            const base64String = imageBuffer.toString('base64');
+                            responseSound.imageDataUrl = `data:${mimeType};base64,${base64String}`;
+                        } else {
+                            console.warn(`Could not determine MIME type for image: ${sound.imagePath}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error reading image file ${sound.imagePath}:`, error);
+                        // imageDataUrl remains undefined
+                    }
+                }
+                return responseSound;
+            });
+            res.json(soundsWithDataUrls);
         });
 
         expressApp.listen(port, () => {
@@ -158,43 +182,68 @@ export default class Main {
         })
     }
 
-    private static async listAudioFiles(dir : string) {
-        let paths : string[] = []
-        let fileNames : string[] = []
+    private static async listAudioFiles(dir: string): Promise<{ audioName: string, audioPath: string, imagePath?: string }[]> {
+        const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+        let soundObjectsList: { audioName: string, audioPath: string, imagePath?: string }[] = [];
 
-        await fspromise.readdir(dir).then((files)  => {
-            for (const file of files) {
-                let filePath = path.join(dir, file)
-                if (mime.getType(filePath) === 'audio/mpeg' || mime.getType(filePath) === 'audio/wav' || mime.getType(filePath) === 'audio/ogg') {
-                    paths.push(path.join(dir, file))
-                    fileNames.push(file)
+        try {
+            const filesInDirectory = await fspromise.readdir(dir);
+            for (const file of filesInDirectory) {
+                const filePath = path.join(dir, file);
+                const mimeType = mime.getType(filePath);
+
+                if (mimeType === 'audio/mpeg' || mimeType === 'audio/wav' || mimeType === 'audio/ogg') {
+                    const baseName = path.parse(file).name;
+                    let imagePath: string | undefined = undefined;
+
+                    for (const imageExt of imageExtensions) {
+                        const potentialImageFileName = baseName + imageExt;
+                        const potentialImagePath = path.join(dir, potentialImageFileName);
+                        if (fs.existsSync(potentialImagePath)) {
+                            imagePath = potentialImagePath;
+                            break; 
+                        }
+                    }
+                    soundObjectsList.push({
+                        audioName: file,
+                        audioPath: filePath,
+                        imagePath: imagePath
+                    });
                 }
             }
-            
-        })
-
-        return [paths, fileNames]
-    
+        } catch (error) {
+            console.error(`Error reading directory ${dir}:`, error);
+            // In case of error reading directory, return empty list or rethrow
+            // For now, returning empty list to avoid breaking promise chains expecting an array
+            return []; 
+        }
+        return soundObjectsList;
     }
 
     private static listenerListFiles() {
         ipcMain.on('APP_listFiles', (event, dir) => {
-            this.listAudioFiles(dir).then(([paths, fileNames]) => { // Renamed 'files' to 'fileNames' for clarity
-                Main.currentSounds = fileNames.map((fileName, index) => ({
-                    name: fileName,
-                    path: paths[index]
+            this.listAudioFiles(dir).then(soundObjectsList => {
+                Main.currentSounds = soundObjectsList.map(soundObject => ({
+                    name: soundObject.audioName,
+                    path: soundObject.audioPath,
+                    imagePath: soundObject.imagePath
                 }));
 
+                // Adapt for existing IPC structure if renderer expects paths and fileNames separately
+                const paths = soundObjectsList.map(s => s.audioPath);
+                const fileNames = soundObjectsList.map(s => s.audioName);
+                // If renderer needs imagePaths, this 'load' object should be updated.
+                // For now, keeping it compatible with potential existing renderer expectations.
                 let load = {
                     dir: dir, 
                     paths: paths,
                     fileNames: fileNames 
-                }
-                event.sender.send('APP_listedFiles', load)
+                };
+                event.sender.send('APP_listedFiles', load);
             }).catch(error => {
-                console.error("Error listing audio files:", error);
-                Main.currentSounds = []; // Clear current sounds on error
-                event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] }); // Send empty list
+                console.error("Error processing listed audio files:", error);
+                Main.currentSounds = []; 
+                event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] });
             });
         })
     }
@@ -206,34 +255,37 @@ export default class Main {
         // -------------------------------------
 
         ipcMain.handle('APP_showDialog', (event, ...args) => {  
-            let dir : string = ''
+            let dir : string = '';
 
             dialog.showOpenDialog({properties: ['openDirectory']})
             .then((result) => {
-                dir = result.filePaths[0]
+                dir = result.filePaths[0];
                 if (dir) {
-                    this.listAudioFiles(dir).then(([paths, fileNames]) => { // Renamed 'files' to 'fileNames'
-                        Main.currentSounds = fileNames.map((fileName, index) => ({
-                            name: fileName,
-                            path: paths[index]
+                    this.listAudioFiles(dir).then(soundObjectsList => {
+                        Main.currentSounds = soundObjectsList.map(soundObject => ({
+                            name: soundObject.audioName,
+                            path: soundObject.audioPath,
+                            imagePath: soundObject.imagePath
                         }));
                         
+                        const paths = soundObjectsList.map(s => s.audioPath);
+                        const fileNames = soundObjectsList.map(s => s.audioName);
+                        // See note in listenerListFiles about adapting this payload if renderer needs more info
                         let load = {
                             dir: dir,
                             paths: paths,
                             fileNames: fileNames
-                        }
-                        event.sender.send('APP_listedFiles', load)
+                        };
+                        event.sender.send('APP_listedFiles', load);
                     }).catch(error => {
-                        console.error("Error listing audio files from dialog:", error);
-                        Main.currentSounds = []; // Clear current sounds on error
-                        // Optionally send an error or empty list back to renderer via APP_listedFiles
+                        console.error("Error processing listed audio files from dialog:", error);
+                        Main.currentSounds = []; 
                         event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] });
                     });
                 }
             }).catch((err) => {
-                console.log(err)
-            })
+                console.log(err);
+            });
         });
     }
 

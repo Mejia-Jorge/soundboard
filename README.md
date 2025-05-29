@@ -73,3 +73,14 @@ The web page will load and attempt to connect to the Electron Soundboard applica
 - Buttons for each sound currently loaded in the soundboard application will be displayed.
 - Clicking a button on the web page will trigger the corresponding sound to play on the host machine where the Electron Soundboard is running.
 - If sounds are not loading, ensure the IP address is correct and try the "Refresh Sounds" button.
+
+### Sound Icons
+
+You can associate icons with your sounds in the web remote interface. These icons will appear on the buttons corresponding to each sound.
+
+To enable this feature:
+1.  Ensure your image file is in the **same directory** as your sound file.
+2.  The image file must have the **exact same base name** as the sound file. For example, if your sound file is named `mysound.mp3`, your image file could be `mysound.png`.
+3.  The application supports the following image extensions: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`. The first one found (in this order of preference, though the actual lookup order might vary) will be used.
+
+If a matching image is found, it will be displayed as an icon on the button for that sound in the web remote interface, making it easier to identify your sounds visually.
