@@ -108,6 +108,14 @@ export default class Main {
         const expressApp = express();
         const port = 3001;
 
+        // Serve static files from the 'build' directory (where electron.js is located)
+        // This should make remote.html accessible if it's in 'build/remote.html' or 'build/public/remote.html'
+        // depending on the build process.
+        expressApp.use(express.static(__dirname)); 
+        // If remote.html is in build/public/remote.html, use:
+        // expressApp.use('/public', express.static(path.join(__dirname, 'public')));
+        // or adjust remote.html path to be /public/remote.html
+
         expressApp.use(cors());
 
         expressApp.get('/hello', (req, res) => {
