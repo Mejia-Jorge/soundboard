@@ -3,8 +3,10 @@ import isDev from'electron-is-dev'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu } from 'electron'
 import fs from 'fs'
 import mime from 'mime'
+import express from 'express'
+import cors from 'cors'
 import { IpcMainEvent } from 'electron/main'
-import { autoUpdater } from "electron-updater"
+import { autoUpdater } from "electron-updater" 
 
 const fspromise = fs.promises
 
@@ -21,7 +23,7 @@ export default class Main {
     static HotkeyEvent : IpcMainEvent
     static tray : Tray
     static Menu : Menu
-
+    static currentSounds: { name: string, path: string, imagePath?: string }[] = [];
 
     private static onWindowAllClosed() {
         if (process.platform !== 'darwin') {
@@ -30,14 +32,14 @@ export default class Main {
     }
 
     private static onClose() {
-        // Dereference the window object.
+        // Dereference the window object. 
         // Main.mainWindow = null;
         console.log("closed")
     }
 
     private static onReady() {
-        Main.mainWindow = new Main.BrowserWindow({
-            width: 1460,
+        Main.mainWindow = new Main.BrowserWindow({ 
+            width: 1460, 
             height: 1000,
             minWidth: 760,
             minHeight: 50,
@@ -47,14 +49,14 @@ export default class Main {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, 'preload.js')
-    }
+    } 
         });
         Main.mainWindow.loadURL(isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../build/index.html')}`);
         Main.mainWindow.on('closed', Main.onClose);
 
+        
 
-
-
+        
 
         Main.mainWindow.on("minimize", (e) => {
             e.preventDefault();
@@ -65,15 +67,14 @@ export default class Main {
         autoUpdater.logger = log
 
         autoUpdater.on('error', (error) => {
-            console.log("error checking for updates!")
-            //dialog.showErrorBox('Error: ', error == null ? "unknown" : (error.stack || error).toString())
+            dialog.showErrorBox('Error: ', error == null ? "unknown" : (error.stack || error).toString())
         })
         if (!isDev) {
             autoUpdater.checkForUpdatesAndNotify()
             console.log("Checking for updates!")
         }
-
-
+        
+        
 
         var contextMenu = Menu.buildFromTemplate([
             {
@@ -100,6 +101,69 @@ export default class Main {
             Main.mainWindow.show()
         })
 
+        Main.initExpressServer();
+    }
+
+    private static initExpressServer() {
+        const expressApp = express();
+        const port = 3001;
+
+        // Serve static files from the 'build' directory (where electron.js is located)
+        // This should make remote.html accessible if it's in 'build/remote.html' or 'build/public/remote.html'
+        // depending on the build process.
+        expressApp.use(express.static(__dirname)); 
+        // If remote.html is in build/public/remote.html, use:
+        // expressApp.use('/public', express.static(path.join(__dirname, 'public')));
+        // or adjust remote.html path to be /public/remote.html
+
+        expressApp.use(cors());
+
+        expressApp.get('/hello', (req, res) => {
+            res.json({ message: "Hello from Electron Express server!" });
+        });
+
+        expressApp.get('/play-sound/:soundName', (req, res) => {
+            const soundName = req.params.soundName;
+            if (Main.mainWindow && Main.mainWindow.webContents) {
+                Main.mainWindow.webContents.send('PLAY_SOUND_FROM_WEB', soundName);
+                res.json({ message: `Request to play ${soundName} received` });
+            } else {
+                res.status(500).json({ message: "Main window not available" });
+            }
+        });
+
+        expressApp.get('/get-sounds', (req, res) => {
+            const soundsWithDataUrls = Main.currentSounds.map(sound => {
+                const responseSound: { name: string, path?: string, imagePath?: string, imageDataUrl?: string } = { 
+                    name: sound.name,
+                    // Optionally include path and imagePath if needed by client, for now, focusing on name and imageDataUrl
+                    // path: sound.path, 
+                    // imagePath: sound.imagePath 
+                };
+                if (sound.imagePath) {
+                    try {
+                        const imageBuffer = fs.readFileSync(sound.imagePath);
+                        const mimeType = mime.getType(sound.imagePath);
+                        if (mimeType) {
+                            const base64String = imageBuffer.toString('base64');
+                            responseSound.imageDataUrl = `data:${mimeType};base64,${base64String}`;
+                        } else {
+                            console.warn(`Could not determine MIME type for image: ${sound.imagePath}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error reading image file ${sound.imagePath}:`, error);
+                        // imageDataUrl remains undefined
+                    }
+                }
+                return responseSound;
+            });
+            res.json(soundsWithDataUrls);
+        });
+
+        expressApp.listen(port, '0.0.0.0', () => {
+            console.log(`Express server listening on port ${port}. Accessible on your local network.`);
+            console.log(`Try: http://<YOUR_MACHINE_IP>:${port}/remote.html`);
+        });
     }
 
 
@@ -119,36 +183,69 @@ export default class Main {
         })
     }
 
-    private static async listAudioFiles(dir : string) {
-        let paths : string[] = []
-        let fileNames : string[] = []
+    private static async listAudioFiles(dir: string): Promise<{ audioName: string, audioPath: string, imagePath?: string }[]> {
+        const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+        let soundObjectsList: { audioName: string, audioPath: string, imagePath?: string }[] = [];
 
-        await fspromise.readdir(dir).then((files)  => {
-            for (const file of files) {
-                let filePath = path.join(dir, file)
-                if (mime.getType(filePath) === 'audio/mpeg' || mime.getType(filePath) === 'audio/wav' || mime.getType(filePath) === 'audio/ogg') {
-                    paths.push(path.join(dir, file))
-                    fileNames.push(file)
+        try {
+            const filesInDirectory = await fspromise.readdir(dir);
+            for (const file of filesInDirectory) {
+                const filePath = path.join(dir, file);
+                const mimeType = mime.getType(filePath);
+
+                if (mimeType === 'audio/mpeg' || mimeType === 'audio/wav' || mimeType === 'audio/ogg') {
+                    const baseName = path.parse(file).name;
+                    let imagePath: string | undefined = undefined;
+
+                    for (const imageExt of imageExtensions) {
+                        const potentialImageFileName = baseName + imageExt;
+                        const potentialImagePath = path.join(dir, potentialImageFileName);
+                        if (fs.existsSync(potentialImagePath)) {
+                            imagePath = potentialImagePath;
+                            break; 
+                        }
+                    }
+                    soundObjectsList.push({
+                        audioName: file,
+                        audioPath: filePath,
+                        imagePath: imagePath
+                    });
                 }
             }
-
-        })
-
-        return [paths, fileNames]
-
+        } catch (error) {
+            console.error(`Error reading directory ${dir}:`, error);
+            // In case of error reading directory, return empty list or rethrow
+            // For now, returning empty list to avoid breaking promise chains expecting an array
+            return []; 
+        }
+        return soundObjectsList;
     }
 
     private static listenerListFiles() {
         ipcMain.on('APP_listFiles', (event, dir) => {
-            this.listAudioFiles(dir).then(([paths, files]) => {
-                let load = {
-                    dir: dir,
-                    paths: paths,
-                    fileNames: files
-                }
+            this.listAudioFiles(dir).then(soundObjectsList => {
+                Main.currentSounds = soundObjectsList.map(soundObject => ({
+                    name: soundObject.audioName,
+                    path: soundObject.audioPath,
+                    imagePath: soundObject.imagePath
+                }));
 
-                event.sender.send('APP_listedFiles', load)
-            })
+                // Adapt for existing IPC structure if renderer expects paths and fileNames separately
+                const paths = soundObjectsList.map(s => s.audioPath);
+                const fileNames = soundObjectsList.map(s => s.audioName);
+                // If renderer needs imagePaths, this 'load' object should be updated.
+                // For now, keeping it compatible with potential existing renderer expectations.
+                let load = {
+                    dir: dir, 
+                    paths: paths,
+                    fileNames: fileNames 
+                };
+                event.sender.send('APP_listedFiles', load);
+            }).catch(error => {
+                console.error("Error processing listed audio files:", error);
+                Main.currentSounds = []; 
+                event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] });
+            });
         })
     }
 
@@ -158,26 +255,38 @@ export default class Main {
         // Response Object contains the Selection path and all the audio files in the dir
         // -------------------------------------
 
-        ipcMain.handle('APP_showDialog', (event, ...args) => {
-            let dir : string = ''
+        ipcMain.handle('APP_showDialog', (event, ...args) => {  
+            let dir : string = '';
 
             dialog.showOpenDialog({properties: ['openDirectory']})
             .then((result) => {
-                dir = result.filePaths[0]
+                dir = result.filePaths[0];
                 if (dir) {
-                    this.listAudioFiles(dir).then(([paths, files]) => {
+                    this.listAudioFiles(dir).then(soundObjectsList => {
+                        Main.currentSounds = soundObjectsList.map(soundObject => ({
+                            name: soundObject.audioName,
+                            path: soundObject.audioPath,
+                            imagePath: soundObject.imagePath
+                        }));
+                        
+                        const paths = soundObjectsList.map(s => s.audioPath);
+                        const fileNames = soundObjectsList.map(s => s.audioName);
+                        // See note in listenerListFiles about adapting this payload if renderer needs more info
                         let load = {
                             dir: dir,
                             paths: paths,
-                            fileNames: files
-                        }
-
-                        event.sender.send('APP_listedFiles', load)
-                    })
+                            fileNames: fileNames
+                        };
+                        event.sender.send('APP_listedFiles', load);
+                    }).catch(error => {
+                        console.error("Error processing listed audio files from dialog:", error);
+                        Main.currentSounds = []; 
+                        event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] });
+                    });
                 }
             }).catch((err) => {
-                console.log(err)
-            })
+                console.log(err);
+            });
         });
     }
 
@@ -195,19 +304,19 @@ export default class Main {
         })
     }
 
+    
 
-
-
+    
 
     private static listenerHotkey() {
-        let keys : string[] = [] // Keep track of keys
+        let keys : string[] = [] // Keep track of keys 
         let names : string[] = [] // Corrosponding File Names for Shortcuts
 
         let bindings : Bind[] = []
 
         ipcMain.on('APP_setkey', (event, key : string, title : string, ...args) => {
-
-            let keyIndex = names.indexOf(title) // Check if a Shortcut is already registered
+            
+            let keyIndex = names.indexOf(title) // Check if a Shortcut is already registered 
             let exists = false
 
             for (let bind of bindings) {
@@ -257,22 +366,22 @@ export default class Main {
         } )
     }
 
-
+        
 
     static main(app: Electron.App, browserWindow: typeof BrowserWindow) {
-        // we pass the Electron.App object and the
-        // Electron.BrowserWindow into this function
-        // so this class has no dependencies. This
-        // makes the code easier to write tests for
+        // we pass the Electron.App object and the  
+        // Electron.BrowserWindow into this function 
+        // so this class has no dependencies. This 
+        // makes the code easier to write tests for 
         Main.BrowserWindow = browserWindow;
-
+        
         Main.application = app;
         Main.application.on('window-all-closed', Main.onWindowAllClosed);
         Main.application.on('ready', Main.onReady);
-
-
-
-
+        
+        
+        
+        
 
         this.listenerFileSelection()
         this.listenerHotkey()
@@ -287,3 +396,4 @@ export default class Main {
 
 
 Main.main(app, BrowserWindow)
+

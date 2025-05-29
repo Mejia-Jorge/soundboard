@@ -19,6 +19,7 @@ const Controller : React.FunctionComponent = () => {
 
     const volumeRef = useRef<HTMLInputElement>(null)
     const virtualVolumeRef = useRef<HTMLInputElement>(null)
+    const soundPlaybackMapRef = useRef(new Map<string, () => void>());
     
     const primaryRef = useRef<HTMLSelectElement>(null)
     const secondaryRef = useRef<HTMLSelectElement>(null)
@@ -109,14 +110,35 @@ const Controller : React.FunctionComponent = () => {
                 loadConfig()
             })
         
-        myIpcRenderer.on('APP_listedFiles', (result) => {
+        const removeListedFilesListener = myIpcRenderer.on('APP_listedFiles', (result) => {
            setPaths(result.paths)
            setPadNames(result.fileNames)
            localStorage.setItem("dir", result.dir)
            localStorage.setItem("paths", JSON.stringify(result.paths))
            localStorage.setItem("names", JSON.stringify(result.fileNames))
 
-        })        
+        })
+        
+        // Listener for PLAY_SOUND_FROM_WEB
+        const removePlaySoundListener = myIpcRenderer.on('PLAY_SOUND_FROM_WEB', (soundName: string) => {
+            console.log("Received request to play sound from web:", soundName);
+            const playFunction = soundPlaybackMapRef.current.get(soundName);
+            if (playFunction) {
+                playFunction();
+            } else {
+                console.warn(`Sound not found in playback map: ${soundName}`);
+            }
+        });
+
+        return () => {
+            // Cleanup listeners
+            if (removeListedFilesListener) {
+                removeListedFilesListener();
+            }
+            if (removePlaySoundListener) {
+                removePlaySoundListener();
+            }
+        };
     }, [])
     
     const handlePathSelection = () => {
@@ -190,7 +212,10 @@ const Controller : React.FunctionComponent = () => {
                             source={path} 
                             name={padNames && padNames[index]}
                             volume={volume}
-                            virtualVolume={virtualVolume}>
+                            virtualVolume={virtualVolume}
+                            registerPlayFunction={(name, playFn) => {
+                                soundPlaybackMapRef.current.set(name, playFn);
+                            }}>
                     </Pad>
                 )}
             </div>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard Remote</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        #sound-buttons-container button { 
+            margin: 5px; 
+            padding: 10px 15px; 
+            border: none; 
+            background-color: #5cb85c; 
+            color: white; 
+            cursor: pointer; 
+            border-radius: 5px; 
+            display: flex; /* For aligning image and text */
+            align-items: center; /* Vertically align items in button */
+            min-width: 150px; /* Ensure buttons have some width */
+            justify-content: center; /* Center content if only text */
+        }
+        #sound-buttons-container button:hover { background-color: #4cae4c; }
+        #sound-buttons-container button img {
+            max-width: 40px;
+            max-height: 40px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        input[type="text"] { padding: 8px; margin-right: 10px; border-radius: 3px; border: 1px solid #ccc; }
+        h1 { color: #333; }
+        p { margin-bottom: 15px; }
+        #sound-buttons-container { display: flex; flex-wrap: wrap; } /* Allow buttons to wrap */
+    </style>
+</head>
+<body>
+    <h1>Soundboard Remote</h1>
+    <p>
+        Enter Electron Host IP: <input type="text" id="host-ip" value="localhost">
+        <button id="refresh-sounds">Refresh Sounds</button>
+    </p>
+    <div id="sound-buttons-container">
+        <!-- Sound buttons will be dynamically added here -->
+    </div>
+
+    <script>
+        const soundButtonsContainer = document.getElementById('sound-buttons-container');
+        const hostIpInput = document.getElementById('host-ip');
+        const refreshButton = document.getElementById('refresh-sounds');
+
+        let sounds = []; // Will be populated by fetchSounds
+
+        async function fetchSounds() {
+            const hostIp = hostIpInput.value || 'localhost';
+            console.log(`Fetching sounds from http://${hostIp}:3001/get-sounds`);
+            soundButtonsContainer.innerHTML = '<p>Loading sounds...</p>'; // Indicate loading
+            try {
+                const response = await fetch(`http://${hostIp}:3001/get-sounds`);
+                if (!response.ok) {
+                    let errorText = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorText += `, Message: ${errorData.message || 'Unknown server error'}`;
+                    } catch (e) {
+                        // Ignore if response is not JSON
+                    }
+                    throw new Error(errorText);
+                }
+                sounds = await response.json();
+                console.log('Sounds loaded:', sounds);
+            } catch (error) {
+                console.error('Error fetching sounds:', error);
+                soundButtonsContainer.innerHTML = `<p>Error loading sounds: ${error.message}. Check console and IP.</p>`;
+                sounds = []; // Clear sounds on error
+            }
+            renderButtons(); // Re-render buttons with new/old sounds
+        }
+
+        function renderButtons() {
+            soundButtonsContainer.innerHTML = ''; // Clear existing buttons
+            const hostIp = hostIpInput.value || 'localhost';
+
+            if (!Array.isArray(sounds) || sounds.length === 0) {
+                if (!soundButtonsContainer.textContent.includes('Error loading sounds')) {
+                     soundButtonsContainer.innerHTML = '<p>No sounds loaded. Try refreshing or check IP.</p>';
+                }
+                return;
+            }
+
+            sounds.forEach(sound => {
+                if (!sound || typeof sound.name !== 'string') {
+                    console.warn('Invalid sound object in sounds array:', sound);
+                    return; 
+                }
+                const button = document.createElement('button');
+                button.innerHTML = ''; // Clear any previous content
+
+                if (sound.imageDataUrl) {
+                    const img = document.createElement('img');
+                    img.src = sound.imageDataUrl;
+                    // Styles are now in CSS, but can be overridden or added to here if needed
+                    button.appendChild(img);
+                }
+
+                const buttonText = document.createElement('span');
+                // Display name without extension, or full name if no extension
+                const nameParts = sound.name.split('.');
+                const nameWithoutExtension = nameParts.length > 1 ? nameParts.slice(0, -1).join('.') : sound.name;
+                buttonText.textContent = nameWithoutExtension;
+                button.appendChild(buttonText);
+                
+                button.onclick = () => {
+                    console.log(`Requesting to play: ${sound.name} via http://${hostIp}:3001`);
+                    fetch(`http://${hostIp}:3001/play-sound/${encodeURIComponent(sound.name)}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => { throw new Error(`Server error: ${err.message || response.status }`) });
+                            }
+                            return response.json();
+                        })
+                        .then(data => console.log('Play request response:', data))
+                        .catch(error => console.error('Error playing sound:', error));
+                };
+                soundButtonsContainer.appendChild(button);
+            });
+        }
+
+        hostIpInput.addEventListener('change', fetchSounds);
+        refreshButton.addEventListener('click', fetchSounds);
+        
+        // Initial load and render
+        fetchSounds(); 
+    </script>
+</body>
+</html>
