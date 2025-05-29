@@ -1,5 +1,5 @@
 import './App.css';
-import React, { MouseEventHandler, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const { myIpcRenderer } = window
 
@@ -19,8 +19,6 @@ const constraints = {
 
 const Recorder : React.FunctionComponent = () => {
 
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const audioRef = useRef<HTMLAudioElement>(null)
     const chunksRef = useRef<Blob[]>([])
     const recorderRef = useRef<MediaRecorder | null>()
     const [recording, setRecording] = useState<boolean>(false)

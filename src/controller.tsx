@@ -1,5 +1,4 @@
-import { readlink } from 'fs'
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import Pad from './pad'
 import Recorder from './Recorder'
 const { myIpcRenderer } = window
@@ -38,63 +37,56 @@ const Controller : React.FunctionComponent = () => {
         localStorage.setItem('secondary_output', event.currentTarget.value)
     }
 
-    const loadConfig = () => {
-
+    const loadConfig = useCallback(() => {
         // Load primary and secondary output settings
+        let output_1 = localStorage.getItem('primary_output');
+        if (output_1) setSelectedPrimaryOutput(output_1);
 
-        let output_1 = localStorage.getItem('primary_output')
-        if (output_1) setSelectedPrimaryOutput(output_1)
+        if (primaryRef.current) { // Check if ref is available
+            var optionsPrimary = Array.from(primaryRef.current.options);
+            optionsPrimary.forEach((option) => { // Use forEach for iteration without map's return
+                if (option.value === output_1) {
+                    option.selected = true;
+                }
+            });
+        }
+        
+        let output_2 = localStorage.getItem('secondary_output');
+        if (output_2) setSelectedSecondaryOutput(output_2);
 
-        let ref = primaryRef.current!
-        var options = Array.from(ref.options)
-        
-        options.map((option, i) => {
-            if (option.value === output_1) {
-                option.selected = true
-            }
-            return 0
-        })
-        
-        let output_2 = localStorage.getItem('secondary_output')
-        if (output_2) setSelectedSecondaryOutput(output_2)
-
-        ref = secondaryRef.current!
-        options = Array.from(ref.options)
-        
-        options.map((option, i) => {
-            if (option.value === output_2) {
-                option.selected = true
-            }
-            return 0
-        })
+        if (secondaryRef.current) { // Check if ref is available
+            var optionsSecondary = Array.from(secondaryRef.current.options);
+            optionsSecondary.forEach((option) => { // Use forEach
+                if (option.value === output_2) {
+                    option.selected = true;
+                }
+            });
+        }
 
         // Load Pad File Paths and names
-
         let loaded_paths = localStorage.getItem("paths");
-        if (loaded_paths) setPaths(JSON.parse(loaded_paths))
+        if (loaded_paths) setPaths(JSON.parse(loaded_paths));
 
         let loaded_names = localStorage.getItem("names");
-        if (loaded_names) setPadNames(JSON.parse(loaded_names))
+        if (loaded_names) setPadNames(JSON.parse(loaded_names));
 
         // Load Volume Sliders
-
-        let loaded_virtualVolume = localStorage.getItem("virtualVolume")
-        if (loaded_virtualVolume) {
-            setVirtualVolume(parseFloat(loaded_virtualVolume))
-            setSliderStyle(virtualVolumeRef.current!, parseFloat(loaded_virtualVolume))
-            virtualVolumeRef.current!.value = (parseFloat(loaded_virtualVolume) * 50).toString() // Scale back to 0 - 50
+        let loaded_virtualVolume = localStorage.getItem("virtualVolume");
+        if (loaded_virtualVolume && virtualVolumeRef.current) { // Check ref
+            const virtualVolumeValue = parseFloat(loaded_virtualVolume);
+            setVirtualVolume(virtualVolumeValue);
+            setSliderStyle(virtualVolumeRef.current, virtualVolumeValue);
+            virtualVolumeRef.current.value = (virtualVolumeValue * 50).toString();
         }
         
-
-        let loaded_volume = localStorage.getItem("volume")
-        if (loaded_volume) {
-            setVolume(parseFloat(loaded_volume))
-            setSliderStyle(volumeRef.current!, parseFloat(loaded_volume))
-            volumeRef.current!.value = (parseFloat(loaded_volume) * 50).toString() // Scale back to 0 - 50
+        let loaded_volume = localStorage.getItem("volume");
+        if (loaded_volume && volumeRef.current) { // Check ref
+            const volumeValue = parseFloat(loaded_volume);
+            setVolume(volumeValue);
+            setSliderStyle(volumeRef.current, volumeValue);
+            volumeRef.current.value = (volumeValue * 50).toString();
         }
-
-    
-    }
+    }, [setSliderStyle, setSelectedPrimaryOutput, setPaths, setPadNames, setVirtualVolume, setVolume, setSelectedSecondaryOutput, primaryRef, secondaryRef, volumeRef, virtualVolumeRef]);
 
     useEffect(() => {    
         // -------------------------------
@@ -107,7 +99,7 @@ const Controller : React.FunctionComponent = () => {
             .then( devices => {
                 devices = devices.filter((output) => output.kind === "audiooutput")
                 setOutputs(devices)
-                loadConfig()
+                loadConfig() 
             })
         
         const removeListedFilesListener = myIpcRenderer.on('APP_listedFiles', (result) => {
@@ -139,15 +131,15 @@ const Controller : React.FunctionComponent = () => {
                 removePlaySoundListener();
             }
         };
-    }, [])
+    }, [loadConfig]);
     
     const handlePathSelection = () => {
         myIpcRenderer.invoke('APP_showDialog')
     }
 
-    const setSliderStyle = (e: HTMLInputElement, progress : number) => {
-        e.style.background = 'linear-gradient(to right, #d08770 0%, #d08770 ' + progress * 100 + '%, #3b4252 ' + progress * 100 + '%, #3b4252 100%)' // Just CSS Stuff to make the slider work
-    }
+    const setSliderStyle = useCallback((e: HTMLInputElement, progress: number) => {
+        e.style.background = 'linear-gradient(to right, #d08770 0%, #d08770 ' + progress * 100 + '%, #3b4252 ' + progress * 100 + '%, #3b4252 100%)';
+    }, []);
 
     const handleVirtualVolumeChange = (e:React.FormEvent<HTMLInputElement>) => {
         let val = parseFloat(e.currentTarget.value)/50  // Scale Input to 0.0 - 1.0

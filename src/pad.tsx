@@ -1,5 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react'
-import Colorselect from './Colorselect'
+import React, {useEffect, useRef, useState, useCallback} from 'react'
 const { myIpcRenderer } = window
 
 
@@ -34,7 +33,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         secondaryAudioRef.current?.setSinkId(output)
     }
 
-    const play = () => {
+    const play = useCallback(() => {
         if (primaryAudioRef.current) {
             primaryAudioRef.current.pause();
             primaryAudioRef.current.currentTime = 0;
@@ -84,11 +83,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             setShortcut(shortcutString)
         }
         
-    }
+    }, []); // primaryAudioRef and secondaryAudioRef are stable refs
     
-    const loadHotkey = () => {
-        let key
-        if (props.name) key = localStorage.getItem(props.name)
+    const loadHotkey = useCallback(() => {
+        let key;
+        if (props.name) key = localStorage.getItem(props.name);
         if (key) {
             setShortcut(key)
             setShortcutText(key)
@@ -96,11 +95,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         }
     }
 
+    }, [props.name, setShortcut, setShortcutText]);
+
     useEffect(() => {
         setShortcut('')
         setShortcutText('')
         loadHotkey()
-    }, [props.name]) 
+    }, [loadHotkey]); 
     
     useEffect(() =>{
         setPrimaryOutput(props.outputs[0])
@@ -113,12 +114,12 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
         removeListenerRef.current = myIpcRenderer.on('APP_keypressed', (args : string) => {
             if(shortcut === args) {
-                play()
+                play(); // play is now memoized
             }
         })
 
         props.name && shortcut && localStorage.setItem(props.name, shortcut)
-    }, [shortcut])
+    }, [shortcut, play]); // Added play to dependency array
     
     useEffect(() => {
 
@@ -130,9 +131,9 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     useEffect(() => {
         if (props.name && props.registerPlayFunction) {
-            props.registerPlayFunction(props.name, play);
+            props.registerPlayFunction(props.name, play); // play is now memoized
         }
-    }, [props.name, props.source, props.registerPlayFunction]); // play is stable, props.source ensures re-registration if source changes
+    }, [props.name, props.source, props.registerPlayFunction, play]); // Added play to dependency array
 
 
 
