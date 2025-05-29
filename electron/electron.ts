@@ -160,8 +160,9 @@ export default class Main {
             res.json(soundsWithDataUrls);
         });
 
-        expressApp.listen(port, () => {
-            console.log(`Express server listening on port ${port}`);
+        expressApp.listen(port, '0.0.0.0', () => {
+            console.log(`Express server listening on port ${port}. Accessible on your local network.`);
+            console.log(`Try: http://<YOUR_MACHINE_IP>:${port}/remote.html`);
         });
     }
 
