@@ -21,6 +21,16 @@ yarn electron-build
 
 Installation files can now be found in the `/dist` folder.
 
+### Development Environment
+The following software versions were used for development:
+- Node.js: 12.x
+- Electron: ^11.2.1
+- electron-builder: ^22.9.1
+- react: ^17.0.1
+- react-dom: ^17.0.1
+- react-scripts: 4.0.1
+- typescript: ^4.1.3
+
 #### Download the Installer
 If you trust my code and just want an `.exe`, there is an installer in the realeses section.
 
