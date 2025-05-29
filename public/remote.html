@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard Remote</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        #sound-buttons-container button { margin: 5px; padding: 10px 15px; border: none; background-color: #5cb85c; color: white; cursor: pointer; border-radius: 5px; }
+        #sound-buttons-container button:hover { background-color: #4cae4c; }
+        input[type="text"] { padding: 8px; margin-right: 10px; border-radius: 3px; border: 1px solid #ccc; }
+        h1 { color: #333; }
+        p { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Soundboard Remote</h1>
+    <p>
+        Enter Electron Host IP: <input type="text" id="host-ip" value="localhost">
+        <button id="refresh-sounds">Refresh Sounds (using placeholder)</button>
+    </p>
+    <div id="sound-buttons-container">
+        <!-- Sound buttons will be dynamically added here -->
+    </div>
+
+    <script>
+        const soundButtonsContainer = document.getElementById('sound-buttons-container');
+        const hostIpInput = document.getElementById('host-ip');
+        const refreshButton = document.getElementById('refresh-sounds');
+
+        // Placeholder sounds - replace with fetch to /get-sounds from Electron Express server later
+        let sounds = [
+            { name: 'sound1.mp3' },
+            { name: 'example.wav' },
+            { name: 'another_sound.ogg' }
+        ];
+
+        // Function to fetch sounds from the server (currently placeholder)
+        async function fetchSounds() {
+            const hostIp = hostIpInput.value || 'localhost';
+            // Replace with actual fetch when /get-sounds is implemented
+            // For now, we just re-use the placeholder or simulate a fetch.
+            console.log(`Fetching sounds from http://${hostIp}:3001/get-sounds (placeholder active)`);
+            try {
+                // const response = await fetch(`http://${hostIp}:3001/get-sounds`);
+                // if (!response.ok) {
+                //     throw new Error(`HTTP error! status: ${response.status}`);
+                // }
+                // sounds = await response.json();
+                // console.log('Sounds loaded:', sounds);
+                
+                // Using placeholder:
+                console.log('Using placeholder sounds array as /get-sounds is not yet implemented.');
+            } catch (error) {
+                console.error('Error fetching sounds:', error);
+                soundButtonsContainer.innerHTML = '<p>Error loading sounds. Check console and IP.</p>';
+                sounds = []; // Clear sounds on error
+            }
+            renderButtons(); // Re-render buttons with new/old sounds
+        }
+
+        function renderButtons() {
+            soundButtonsContainer.innerHTML = ''; // Clear existing buttons
+            const hostIp = hostIpInput.value || 'localhost';
+
+            if (sounds.length === 0) {
+                soundButtonsContainer.innerHTML = '<p>No sounds loaded. Try refreshing or check IP.</p>';
+                return;
+            }
+
+            sounds.forEach(sound => {
+                if (!sound || typeof sound.name !== 'string') {
+                    console.warn('Invalid sound object in sounds array:', sound);
+                    return; 
+                }
+                const button = document.createElement('button');
+                // Display name without extension
+                const nameWithoutExtension = sound.name.split('.').slice(0, -1).join('.') || sound.name;
+                button.textContent = nameWithoutExtension;
+                
+                button.onclick = () => {
+                    console.log(`Requesting to play: ${sound.name} via http://${hostIp}:3001`);
+                    fetch(`http://${hostIp}:3001/play-sound/${encodeURIComponent(sound.name)}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => { throw new Error(`Server error: ${err.message || response.status }`) });
+                            }
+                            return response.json();
+                        })
+                        .then(data => console.log('Play request response:', data))
+                        .catch(error => console.error('Error playing sound:', error));
+                };
+                soundButtonsContainer.appendChild(button);
+            });
+        }
+
+        hostIpInput.addEventListener('change', fetchSounds); // Re-fetch (and re-render) if IP changes
+        refreshButton.addEventListener('click', fetchSounds); // Button to manually trigger fetch (and re-render)
+        
+        // Initial load and render
+        fetchSounds(); 
+    </script>
+</body>
+</html>

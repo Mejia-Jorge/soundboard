@@ -11,6 +11,7 @@ type padProps = {
     key: number
     volume: number
     virtualVolume: number
+    registerPlayFunction?: (name: string, playFn: () => void)
 }
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
@@ -35,14 +36,21 @@ const Pad : React.FunctionComponent<padProps> = (props : padProps) => {
     }
 
     const play = () => {
-        if (primaryAudioRef.current?.paused) {
-            primaryAudioRef.current?.play()
-            secondaryAudioRef.current?.play()
-        } else {
-            primaryAudioRef.current?.pause()
-            primaryAudioRef.current!.currentTime = 0
-            secondaryAudioRef.current?.pause()
-            secondaryAudioRef.current!.currentTime = 0
+        if (primaryAudioRef.current) {
+            primaryAudioRef.current.pause();
+            primaryAudioRef.current.currentTime = 0;
+        }
+        if (secondaryAudioRef.current) {
+            secondaryAudioRef.current.pause();
+            secondaryAudioRef.current.currentTime = 0;
+        }
+
+        // Start playback
+        if (primaryAudioRef.current) {
+            primaryAudioRef.current.play().catch(error => console.error("Error playing primary audio:", error));
+        }
+        if (secondaryAudioRef.current) {
+            secondaryAudioRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
         }
     }
 
@@ -120,6 +128,12 @@ const Pad : React.FunctionComponent<padProps> = (props : padProps) => {
         secondaryAudioRef.current!.volume = Math.exp((Math.log(props.virtualVolume) / Math.log(10)) * 4)
         
     }, [props.volume, props.virtualVolume])
+
+    useEffect(() => {
+        if (props.name && props.registerPlayFunction) {
+            props.registerPlayFunction(props.name, play);
+        }
+    }, [props.name, props.source, props.registerPlayFunction]); // play is stable, props.source ensures re-registration if source changes
 
 
 

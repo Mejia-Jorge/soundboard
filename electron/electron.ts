@@ -3,6 +3,8 @@ import isDev from'electron-is-dev'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu } from 'electron'
 import fs from 'fs'
 import mime from 'mime'
+import express from 'express'
+import cors from 'cors'
 import { IpcMainEvent } from 'electron/main'
 import { autoUpdater } from "electron-updater" 
 
@@ -21,7 +23,7 @@ export default class Main {
     static HotkeyEvent : IpcMainEvent
     static tray : Tray
     static Menu : Menu
-    
+    static currentSounds: { name: string, path: string }[] = [];
 
     private static onWindowAllClosed() {
         if (process.platform !== 'darwin') {
@@ -99,6 +101,36 @@ export default class Main {
             Main.mainWindow.show()
         })
 
+        Main.initExpressServer();
+    }
+
+    private static initExpressServer() {
+        const expressApp = express();
+        const port = 3001;
+
+        expressApp.use(cors());
+
+        expressApp.get('/hello', (req, res) => {
+            res.json({ message: "Hello from Electron Express server!" });
+        });
+
+        expressApp.get('/play-sound/:soundName', (req, res) => {
+            const soundName = req.params.soundName;
+            if (Main.mainWindow && Main.mainWindow.webContents) {
+                Main.mainWindow.webContents.send('PLAY_SOUND_FROM_WEB', soundName);
+                res.json({ message: `Request to play ${soundName} received` });
+            } else {
+                res.status(500).json({ message: "Main window not available" });
+            }
+        });
+
+        expressApp.get('/get-sounds', (req, res) => {
+            res.json(Main.currentSounds);
+        });
+
+        expressApp.listen(port, () => {
+            console.log(`Express server listening on port ${port}`);
+        });
     }
 
 
@@ -139,15 +171,23 @@ export default class Main {
 
     private static listenerListFiles() {
         ipcMain.on('APP_listFiles', (event, dir) => {
-            this.listAudioFiles(dir).then(([paths, files]) => {
+            this.listAudioFiles(dir).then(([paths, fileNames]) => { // Renamed 'files' to 'fileNames' for clarity
+                Main.currentSounds = fileNames.map((fileName, index) => ({
+                    name: fileName,
+                    path: paths[index]
+                }));
+
                 let load = {
                     dir: dir, 
                     paths: paths,
-                    fileNames: files
+                    fileNames: fileNames 
                 }
-
                 event.sender.send('APP_listedFiles', load)
-            })
+            }).catch(error => {
+                console.error("Error listing audio files:", error);
+                Main.currentSounds = []; // Clear current sounds on error
+                event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] }); // Send empty list
+            });
         })
     }
 
@@ -164,15 +204,24 @@ export default class Main {
             .then((result) => {
                 dir = result.filePaths[0]
                 if (dir) {
-                    this.listAudioFiles(dir).then(([paths, files]) => {
+                    this.listAudioFiles(dir).then(([paths, fileNames]) => { // Renamed 'files' to 'fileNames'
+                        Main.currentSounds = fileNames.map((fileName, index) => ({
+                            name: fileName,
+                            path: paths[index]
+                        }));
+                        
                         let load = {
                             dir: dir,
                             paths: paths,
-                            fileNames: files
+                            fileNames: fileNames
                         }
-
                         event.sender.send('APP_listedFiles', load)
-                    })
+                    }).catch(error => {
+                        console.error("Error listing audio files from dialog:", error);
+                        Main.currentSounds = []; // Clear current sounds on error
+                        // Optionally send an error or empty list back to renderer via APP_listedFiles
+                        event.sender.send('APP_listedFiles', { dir: dir, paths: [], fileNames: [] });
+                    });
                 }
             }).catch((err) => {
                 console.log(err)
