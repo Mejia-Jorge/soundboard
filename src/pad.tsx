@@ -4,14 +4,14 @@ const { myIpcRenderer } = window
 
 
 
-type PadProps = {
+interface PadProps {
     outputs: string[];
     source: string;
     name: string | undefined;
     volume: number;
     virtualVolume: number;
     registerPlayFunction?: (name: string, playFn: () => void);
-};
+}
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
 
