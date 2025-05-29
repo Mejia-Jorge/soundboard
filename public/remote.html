@@ -42,13 +42,13 @@
             // For now, we just re-use the placeholder or simulate a fetch.
             console.log(`Fetching sounds from http://${hostIp}:3001/get-sounds (placeholder active)`);
             try {
-                // const response = await fetch(`http://${hostIp}:3001/get-sounds`);
-                // if (!response.ok) {
-                //     throw new Error(`HTTP error! status: ${response.status}`);
-                // }
-                // sounds = await response.json();
-                // console.log('Sounds loaded:', sounds);
-                
+                const response = await fetch(`http://${hostIp}:3001/get-sounds`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                sounds = await response.json();
+                console.log('Sounds loaded:', sounds);
+
                 // Using placeholder:
                 console.log('Using placeholder sounds array as /get-sounds is not yet implemented.');
             } catch (error) {
@@ -71,13 +71,13 @@
             sounds.forEach(sound => {
                 if (!sound || typeof sound.name !== 'string') {
                     console.warn('Invalid sound object in sounds array:', sound);
-                    return; 
+                    return;
                 }
                 const button = document.createElement('button');
                 // Display name without extension
                 const nameWithoutExtension = sound.name.split('.').slice(0, -1).join('.') || sound.name;
                 button.textContent = nameWithoutExtension;
-                
+
                 button.onclick = () => {
                     console.log(`Requesting to play: ${sound.name} via http://${hostIp}:3001`);
                     fetch(`http://${hostIp}:3001/play-sound/${encodeURIComponent(sound.name)}`)
@@ -96,9 +96,9 @@
 
         hostIpInput.addEventListener('change', fetchSounds); // Re-fetch (and re-render) if IP changes
         refreshButton.addEventListener('click', fetchSounds); // Button to manually trigger fetch (and re-render)
-        
+
         // Initial load and render
-        fetchSounds(); 
+        fetchSounds();
     </script>
 </body>
 </html>
