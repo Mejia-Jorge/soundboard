@@ -6,7 +6,7 @@ import mime from 'mime'
 import express from 'express'
 import cors from 'cors'
 import { IpcMainEvent } from 'electron/main'
-import { autoUpdater } from "electron-updater"
+import { autoUpdater } from "electron-updater" 
 
 const fspromise = fs.promises
 
@@ -32,14 +32,14 @@ export default class Main {
     }
 
     private static onClose() {
-        // Dereference the window object.
+        // Dereference the window object. 
         // Main.mainWindow = null;
         console.log("closed")
     }
 
     private static onReady() {
-        Main.mainWindow = new Main.BrowserWindow({
-            width: 1460,
+        Main.mainWindow = new Main.BrowserWindow({ 
+            width: 1460, 
             height: 1000,
             minWidth: 760,
             minHeight: 50,
@@ -49,14 +49,14 @@ export default class Main {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, 'preload.js')
-    }
+    } 
         });
         Main.mainWindow.loadURL(isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../build/index.html')}`);
         Main.mainWindow.on('closed', Main.onClose);
 
+        
 
-
-
+        
 
         Main.mainWindow.on("minimize", (e) => {
             e.preventDefault();
@@ -67,15 +67,14 @@ export default class Main {
         autoUpdater.logger = log
 
         autoUpdater.on('error', (error) => {
-            console.log("error checking for updates!")
-            //dialog.showErrorBox('Error: ', error == null ? "unknown" : (error.stack || error).toString())
+            dialog.showErrorBox('Error: ', error == null ? "unknown" : (error.stack || error).toString())
         })
         if (!isDev) {
             autoUpdater.checkForUpdatesAndNotify()
             console.log("Checking for updates!")
         }
-
-
+        
+        
 
         var contextMenu = Menu.buildFromTemplate([
             {
@@ -163,11 +162,11 @@ export default class Main {
                     fileNames.push(file)
                 }
             }
-
+            
         })
 
         return [paths, fileNames]
-
+    
     }
 
     private static listenerListFiles() {
@@ -179,7 +178,7 @@ export default class Main {
                 }));
 
                 let load = {
-                    dir: dir,
+                    dir: dir, 
                     paths: paths,
                     fileNames: fileNames 
                 }
@@ -198,7 +197,7 @@ export default class Main {
         // Response Object contains the Selection path and all the audio files in the dir
         // -------------------------------------
 
-        ipcMain.handle('APP_showDialog', (event, ...args) => {
+        ipcMain.handle('APP_showDialog', (event, ...args) => {  
             let dir : string = ''
 
             dialog.showOpenDialog({properties: ['openDirectory']})
@@ -244,19 +243,19 @@ export default class Main {
         })
     }
 
+    
 
-
-
+    
 
     private static listenerHotkey() {
-        let keys : string[] = [] // Keep track of keys
+        let keys : string[] = [] // Keep track of keys 
         let names : string[] = [] // Corrosponding File Names for Shortcuts
 
         let bindings : Bind[] = []
 
         ipcMain.on('APP_setkey', (event, key : string, title : string, ...args) => {
-
-            let keyIndex = names.indexOf(title) // Check if a Shortcut is already registered
+            
+            let keyIndex = names.indexOf(title) // Check if a Shortcut is already registered 
             let exists = false
 
             for (let bind of bindings) {
@@ -306,22 +305,22 @@ export default class Main {
         } )
     }
 
-
+        
 
     static main(app: Electron.App, browserWindow: typeof BrowserWindow) {
-        // we pass the Electron.App object and the
-        // Electron.BrowserWindow into this function
-        // so this class has no dependencies. This
-        // makes the code easier to write tests for
+        // we pass the Electron.App object and the  
+        // Electron.BrowserWindow into this function 
+        // so this class has no dependencies. This 
+        // makes the code easier to write tests for 
         Main.BrowserWindow = browserWindow;
-
+        
         Main.application = app;
         Main.application.on('window-all-closed', Main.onWindowAllClosed);
         Main.application.on('ready', Main.onReady);
-
-
-
-
+        
+        
+        
+        
 
         this.listenerFileSelection()
         this.listenerHotkey()
@@ -336,3 +335,4 @@ export default class Main {
 
 
 Main.main(app, BrowserWindow)
+

@@ -4,19 +4,18 @@ const { myIpcRenderer } = window
 
 
 
-type padProps = {
-    outputs : string[]
-    source: string,
-    name: string | undefined
-    key: number
-    volume: number
-    virtualVolume: number
-    registerPlayFunction?: (name: string, playFn: () => void)
-}
+type PadProps = { // Changed to PascalCase for convention
+    outputs: string[];
+    source: string;
+    name: string | undefined;
+    volume: number;
+    virtualVolume: number;
+    registerPlayFunction?: (name: string, playFn: () => void); // Ensure this line ends with a semicolon
+}; // Ensure the type alias ends with a semicolon
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
 
-const Pad : React.FunctionComponent<padProps> = (props : padProps) => {
+const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const primaryAudioRef = useRef<ExtendedAudioElement>(null) 
     const secondaryAudioRef = useRef<ExtendedAudioElement>(null)
 
