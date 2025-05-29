@@ -10,7 +10,7 @@ interface PadProps {
     name: string | undefined;
     volume: number;
     virtualVolume: number;
-    registerPlayFunction?: (name: string, playFn: () => void);
+    registerPlayFunction?: (name: string, playFn: () => void) => void;
 }
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
