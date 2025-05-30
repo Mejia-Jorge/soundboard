@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Soundboard Remote</title>
+    <link rel="manifest" href="/remote_manifest.json">
     <style>
         body {
             font-family: sans-serif;
@@ -129,6 +130,24 @@
         const refreshButton = document.getElementById('refresh-sounds');
 
         let sounds = []; // Will be populated by fetchSounds
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+          if ('wakeLock' in navigator) {
+            try {
+              wakeLock = await navigator.wakeLock.request('screen');
+              wakeLock.addEventListener('release', () => {
+                console.log('Screen Wake Lock released:', wakeLock.released);
+                // Optionally, re-request the lock if it was released unexpectedly
+              });
+              console.log('Screen Wake Lock acquired.');
+            } catch (err) {
+              console.error(`Wake Lock request failed: ${err.name}, ${err.message}`);
+            }
+          } else {
+            console.log('Wake Lock API not supported.');
+          }
+        }
 
         async function fetchSounds() {
             const hostIp = window.location.hostname;
@@ -148,12 +167,14 @@
                 }
                 sounds = await response.json();
                 console.log('Sounds loaded:', sounds);
+                renderButtons(); // Re-render buttons with new sounds
+                await requestWakeLock(); // Attempt to acquire wake lock after sounds are loaded
             } catch (error) {
                 console.error('Error fetching sounds:', error);
                 soundButtonsContainer.innerHTML = `<p>Error loading sounds: ${error.message}. Check console and IP.</p>`;
                 sounds = []; // Clear sounds on error
+                renderButtons(); // Still render (to show error or no sounds message)
             }
-            renderButtons(); // Re-render buttons with new/old sounds
         }
 
         function renderButtons() {
@@ -208,8 +229,30 @@
 
         refreshButton.addEventListener('click', fetchSounds);
         
+        document.addEventListener('visibilitychange', async () => {
+          if (wakeLock !== null && document.visibilityState === 'hidden') {
+            console.log('Releasing wake lock due to page visibility change.');
+            await wakeLock.release();
+            wakeLock = null; 
+          } else if (document.visibilityState === 'visible') {
+            console.log('Page visible again, re-acquiring wake lock.');
+            await requestWakeLock();
+          }
+        });
+
         // Initial load and render
         fetchSounds(); 
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/remote_sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
     </script>
 </body>
 </html>
