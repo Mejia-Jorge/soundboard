@@ -5,7 +5,6 @@ import fs from 'fs'
 import mime from 'mime'
 import express from 'express'
 import cors from 'cors'
-import https from 'https';
 import { IpcMainEvent } from 'electron/main'
 import { autoUpdater } from "electron-updater" 
 
@@ -168,14 +167,9 @@ export default class Main {
             res.json(soundsWithDataUrls);
         });
 
-        const httpsOptions = {
-            key: fs.readFileSync(path.join(__dirname, 'key.pem')), // Placeholder
-            cert: fs.readFileSync(path.join(__dirname, 'cert.pem')) // Placeholder
-        };
-
-        https.createServer(httpsOptions, expressApp).listen(port, '0.0.0.0', () => {
-            console.log(`HTTPS Express server listening on port ${port}. Accessible on your local network.`);
-            console.log(`Try: https://<YOUR_MACHINE_IP>:${port}/remote.html`); // Updated to https
+        expressApp.listen(port, '0.0.0.0', () => {
+            console.log(`Express server listening on port ${port}. Accessible on your local network.`);
+            console.log(`Try: http://<YOUR_MACHINE_IP>:${port}/remote.html`);
         });
     }
 
