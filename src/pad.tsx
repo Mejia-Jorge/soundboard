@@ -36,20 +36,25 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     const play = () => {
         if (primaryAudioRef.current) {
-            primaryAudioRef.current.pause();
-            primaryAudioRef.current.currentTime = 0;
-        }
-        if (secondaryAudioRef.current) {
-            secondaryAudioRef.current.pause();
-            secondaryAudioRef.current.currentTime = 0;
-        }
-
-        // Start playback
-        if (primaryAudioRef.current) {
-            primaryAudioRef.current.play().catch(error => console.error("Error playing primary audio:", error));
-        }
-        if (secondaryAudioRef.current) {
-            secondaryAudioRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+            // Check if the audio is currently playing
+            if (!primaryAudioRef.current.paused && primaryAudioRef.current.currentTime > 0) {
+                primaryAudioRef.current.pause();
+                primaryAudioRef.current.currentTime = 0;
+                if (secondaryAudioRef.current) {
+                    secondaryAudioRef.current.pause();
+                    secondaryAudioRef.current.currentTime = 0;
+                }
+            } else {
+                // If not playing, reset and play
+                primaryAudioRef.current.currentTime = 0;
+                if (secondaryAudioRef.current) {
+                    secondaryAudioRef.current.currentTime = 0;
+                }
+                primaryAudioRef.current.play().catch(error => console.error("Error playing primary audio:", error));
+                if (secondaryAudioRef.current) {
+                    secondaryAudioRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+                }
+            }
         }
     }
 
