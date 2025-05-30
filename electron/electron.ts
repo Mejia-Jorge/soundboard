@@ -108,6 +108,13 @@ export default class Main {
         const expressApp = express();
         const port = 3001;
 
+        // Serve remote.html at the root path
+        expressApp.get('/', (req, res) => {
+            // This assumes remote.html is directly in the build output directory (e.g., build/remote.html)
+            // This is consistent with the existing log message that suggests /remote.html
+            res.sendFile(path.join(__dirname, 'remote.html'));
+        });
+
         // Serve static files from the 'build' directory (where electron.js is located)
         // This should make remote.html accessible if it's in 'build/remote.html' or 'build/public/remote.html'
         // depending on the build process.
