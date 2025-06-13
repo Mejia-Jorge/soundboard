@@ -207,50 +207,52 @@ const Controller : React.FunctionComponent = () => {
 
 
             <div id="pads">
-                {paths && paths.map((path, index) => 
-                    <Pad    key={path}
-                            draggable={true}
-                            onDragStart={() => {
-                                draggedItemIndexRef.current = index;
-                            }}
-                            onDragOver={(event) => {
-                                event.preventDefault();
-                            }}
-                            onDrop={() => {
-                                if (draggedItemIndexRef.current === null) return;
-                                const draggedIndex = draggedItemIndexRef.current;
-                                const droppedIndex = index;
-                                if (draggedIndex === droppedIndex) return;
+                {paths && paths.map((path, index) => {
+                    const padProps = {
+                        key: path,
+                        draggable: true,
+                        onDragStart: () => {
+                            draggedItemIndexRef.current = index;
+                        },
+                        onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
+                            event.preventDefault();
+                        },
+                        onDrop: () => {
+                            if (draggedItemIndexRef.current === null) return;
+                            const draggedIndex = draggedItemIndexRef.current;
+                            const droppedIndex = index;
+                            if (draggedIndex === droppedIndex) return;
 
-                                const newPaths = [...paths];
-                                const newPadNames = padNames ? [...padNames] : [];
+                            const newPaths = [...paths];
+                            const newPadNames = padNames ? [...padNames] : [];
 
-                                const [draggedPath] = newPaths.splice(draggedIndex, 1);
-                                newPaths.splice(droppedIndex, 0, draggedPath);
+                            const [draggedPath] = newPaths.splice(draggedIndex, 1);
+                            newPaths.splice(droppedIndex, 0, draggedPath);
 
-                                if (padNames) {
-                                    const [draggedName] = newPadNames.splice(draggedIndex, 1);
-                                    newPadNames.splice(droppedIndex, 0, draggedName);
-                                }
+                            if (padNames) {
+                                const [draggedName] = newPadNames.splice(draggedIndex, 1);
+                                newPadNames.splice(droppedIndex, 0, draggedName);
+                            }
 
-                                setPaths(newPaths);
-                                if (padNames) setPadNames(newPadNames);
+                            setPaths(newPaths);
+                            if (padNames) setPadNames(newPadNames);
 
-                                localStorage.setItem("paths", JSON.stringify(newPaths));
-                                if (padNames) localStorage.setItem("names", JSON.stringify(newPadNames));
+                            localStorage.setItem("paths", JSON.stringify(newPaths));
+                            if (padNames) localStorage.setItem("names", JSON.stringify(newPadNames));
 
-                                draggedItemIndexRef.current = null;
-                            }}
-                            outputs={ [selectedPrimaryOutput, selectedSecondaryOutput] } 
-                            source={path} 
-                            name={padNames && padNames[index]}
-                            volume={volume}
-                            virtualVolume={virtualVolume}
-                            registerPlayFunction={(name, playFn) => {
-                                soundPlaybackMapRef.current.set(name, playFn);
-                            }}>
-                    </Pad>
-                )}
+                            draggedItemIndexRef.current = null;
+                        },
+                        outputs: [selectedPrimaryOutput, selectedSecondaryOutput],
+                        source: path,
+                        name: padNames && padNames[index],
+                        volume: volume,
+                        virtualVolume: virtualVolume,
+                        registerPlayFunction: (name: string, playFn: () => void) => {
+                            soundPlaybackMapRef.current.set(name, playFn);
+                        }
+                    };
+                    return <Pad {...(padProps as any)} />;
+                })}
             </div>
     </div>
     )

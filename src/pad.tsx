@@ -11,6 +11,10 @@ interface PadProps {
     volume: number;
     virtualVolume: number;
     registerPlayFunction?: (name: string, playFn: () => void) => void;
+    draggable?: boolean;
+    onDragStart?: (event: React.DragEvent<HTMLDivElement>) => void;
+    onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+    onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
 }
 
 let keys : string[] = [] // Could also be converted to variable ref inside component
@@ -154,7 +158,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
 
     return (
-    <div>
+    <div data-testid="pad-container"
+         draggable={props.draggable}
+         onDragStart={props.onDragStart}
+         onDragOver={props.onDragOver}
+         onDrop={props.onDrop}>
         <audio ref={primaryAudioRef} src={ props.source } preload="auto"/>
         <audio ref={secondaryAudioRef} src={ props.source } preload="auto"/>
         <button onClick={play} 
