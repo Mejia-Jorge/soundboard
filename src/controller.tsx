@@ -13,6 +13,7 @@ const Controller : React.FunctionComponent = () => {
     
     const [selectedPrimaryOutput, setSelectedPrimaryOutput] = useState<string>('default')
     const [selectedSecondaryOutput, setSelectedSecondaryOutput] = useState<string>('default')
+    const draggedItemIndexRef = useRef<number | null>(null);
     
     const [volume, setVolume] = useState<number>(1.0)
     const [virtualVolume, setVirtualVolume] = useState<number>(1.0)
@@ -207,7 +208,39 @@ const Controller : React.FunctionComponent = () => {
 
             <div id="pads">
                 {paths && paths.map((path, index) => 
-                    <Pad    key={index} 
+                    <Pad    key={path}
+                            draggable={true}
+                            onDragStart={() => {
+                                draggedItemIndexRef.current = index;
+                            }}
+                            onDragOver={(event) => {
+                                event.preventDefault();
+                            }}
+                            onDrop={() => {
+                                if (draggedItemIndexRef.current === null) return;
+                                const draggedIndex = draggedItemIndexRef.current;
+                                const droppedIndex = index;
+                                if (draggedIndex === droppedIndex) return;
+
+                                const newPaths = [...paths];
+                                const newPadNames = padNames ? [...padNames] : [];
+
+                                const [draggedPath] = newPaths.splice(draggedIndex, 1);
+                                newPaths.splice(droppedIndex, 0, draggedPath);
+
+                                if (padNames) {
+                                    const [draggedName] = newPadNames.splice(draggedIndex, 1);
+                                    newPadNames.splice(droppedIndex, 0, draggedName);
+                                }
+
+                                setPaths(newPaths);
+                                if (padNames) setPadNames(newPadNames);
+
+                                localStorage.setItem("paths", JSON.stringify(newPaths));
+                                if (padNames) localStorage.setItem("names", JSON.stringify(newPadNames));
+
+                                draggedItemIndexRef.current = null;
+                            }}
                             outputs={ [selectedPrimaryOutput, selectedSecondaryOutput] } 
                             source={path} 
                             name={padNames && padNames[index]}
