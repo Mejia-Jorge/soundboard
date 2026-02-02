@@ -44,33 +44,6 @@ export default class Main {
         }
     }
 
-    private static updateIcons(enabled: boolean) {
-        const iconName = enabled ? 'icon_active.png' : 'icon_disabled.png';
-        const iconPath = isDev
-            ? path.join(app.getAppPath(), 'public', iconName)
-            : path.join(__dirname, iconName);
-
-        if (fs.existsSync(iconPath)) {
-            const image = nativeImage.createFromPath(iconPath);
-            if (Main.tray) {
-                Main.tray.setImage(image);
-            }
-            if (Main.mainWindow) {
-                Main.mainWindow.setIcon(image);
-            }
-        } else {
-            // Fallback to default icon if specialized ones are missing
-            const defaultIconPath = isDev
-                ? path.join(app.getAppPath(), 'public', 'icon.png')
-                : path.join(__dirname, 'icon.png');
-            if (fs.existsSync(defaultIconPath)) {
-                const image = nativeImage.createFromPath(defaultIconPath);
-                if (Main.tray) Main.tray.setImage(image);
-                if (Main.mainWindow) Main.mainWindow.setIcon(image);
-            }
-        }
-    }
-
     private static setToggleHotkey(key: string) {
         if (Main.toggleHotkey) {
             try {
@@ -96,7 +69,6 @@ export default class Main {
         } else {
             Main.unregisterAllShortcuts();
         }
-        Main.updateIcons(Main.soundboardEnabled);
         if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
             Main.mainWindow.webContents.send('APP_soundboardState', Main.soundboardEnabled);
         }
@@ -154,7 +126,7 @@ export default class Main {
         autoUpdater.logger = log
 
         autoUpdater.on('error', (error) => {
-            dialog.showErrorBox('Error: ', error == null ? "unknown" : (error.stack || error).toString())
+            console.error('AutoUpdater Error: ', error == null ? "unknown" : (error.stack || error).toString())
         })
         if (!isDev) {
             autoUpdater.checkForUpdatesAndNotify()
@@ -187,8 +159,6 @@ export default class Main {
         Main.tray.addListener('click', (e) => {
             Main.mainWindow.show()
         })
-
-        Main.updateIcons(Main.soundboardEnabled);
 
         Main.initExpressServer();
     }
@@ -462,12 +432,17 @@ export default class Main {
                 } else {
                     Main.unregisterAllShortcuts()
                 }
-                Main.updateIcons(Main.soundboardEnabled);
                 if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
                     Main.mainWindow.webContents.send('APP_soundboardState', Main.soundboardEnabled)
                 }
             }
         })
+
+        ipcMain.on('APP_updateIcon', (event, dataUrl: string) => {
+            const image = nativeImage.createFromDataURL(dataUrl);
+            if (Main.tray) Main.tray.setImage(image);
+            if (Main.mainWindow) Main.mainWindow.setIcon(image);
+        });
     }
 
 

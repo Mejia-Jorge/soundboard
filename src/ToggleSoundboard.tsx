@@ -7,11 +7,40 @@ const ToggleSoundboard: React.FunctionComponent = () => {
     const [shortcutText, setShortcutText] = useState('')
     const [buttonFocus, setButtonFocus] = useState(false)
 
+    const generateDynamicIcon = (isEnabled: boolean) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const img = new Image();
+        img.src = 'icon.png';
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, 64, 64);
+            if (isEnabled) {
+                // Draw LED dot (Red like OBS)
+                ctx.beginPath();
+                ctx.arc(50, 14, 10, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ff0000';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            myIpcRenderer.send('APP_updateIcon', canvas.toDataURL());
+        };
+    };
+
     useEffect(() => {
         myIpcRenderer.send('APP_getSoundboardState')
         const removeStateListener = myIpcRenderer.on('APP_soundboardState', (state: boolean) => {
             setEnabled(state)
+            generateDynamicIcon(state);
         })
+
+        // Initial icon update in case state is already known
+        generateDynamicIcon(enabled);
 
         let key = localStorage.getItem('toggle_hotkey')
         if (key) {
@@ -73,11 +102,11 @@ const ToggleSoundboard: React.FunctionComponent = () => {
 
     const handleButtonHover = (state: string) => {
         if (state === 'in') {
-            if (!buttonFocus) setShortcutText('Rightclick to enter hotkey')
+            if (!buttonFocus) setShortcutText('Rightclick to enter hotkey / Esc to clear')
         }
         if (state === 'out') {
             setShortcutText(shortcut)
-            setButtonFocus(false)
+            if (!buttonFocus) setButtonFocus(false)
         }
     }
 
@@ -89,7 +118,7 @@ const ToggleSoundboard: React.FunctionComponent = () => {
             </div>
             <button
                 onClick={toggle}
-                className={enabled ? "pad" : "pad btn-important"}
+                className={enabled ? "pad btn-important" : "pad"}
                 onContextMenu={handleContext}
                 onMouseOut={() => handleButtonHover('out')}
                 onMouseEnter={() => handleButtonHover('in')}

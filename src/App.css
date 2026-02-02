@@ -221,13 +221,13 @@ option {
 }
 
 .led-on {
-    background-color: #8fbcbb;
-    box-shadow: 0 0 10px #8fbcbb;
+    background-color: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
 }
 
 .led-off {
-    background-color: #88455e;
-    box-shadow: 0 0 10px #88455e;
+    background-color: #434c5e;
+    box-shadow: 0 0 5px #000;
 }
 
 #recorder button {
