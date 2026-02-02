@@ -24,13 +24,13 @@
     "cors": "^2.8.5"
   },
   "scripts": {
-    "react-start": "yarn compile | react-scripts start",
-    "start": "concurrently 'yarn react-start' 'wait-on http://localhost:3000 && electron build/electron.js'",
-    "winStart": "concurrently \"yarn react-start\" \"wait-on http://localhost:3000 && yarn electron .\\build\\electron.js\"",
-    "electron-build": "electron-builder",
+    "react-start": "npm run compile | react-scripts start",
+    "start": "concurrently 'npm run react-start' 'wait-on http://localhost:3000 && electron build/electron.js'",
+    "winStart": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\\build\\electron.js\"",
+    "electron-build": "npm run build && electron-builder",
     "compile": "tsc -p tsconfig.electron.json",
     "compile-watch": "tsc -p tsconfig.electron.json -w",
-    "build": "react-scripts build && yarn compile",
+    "build": "react-scripts build && npm run compile",
     "test": "react-scripts test",
     "e-dev": "electron build/electron.js",
     "eject": "react-scripts eject",

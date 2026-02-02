@@ -19,5 +19,5 @@
     "suppressImplicitAnyIndexErrors": true
   },
   "include": ["electron"],
-  "exlude": ["src", "node_modules"]
+  "exclude": ["src", "node_modules"]
 }
