@@ -1,6 +1,6 @@
 import path from 'path'
 import isDev from'electron-is-dev'
-import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
 import mime from 'mime'
 import express from 'express'
@@ -24,6 +24,93 @@ export default class Main {
     static tray : Tray
     static Menu : Menu
     static currentSounds: { name: string, path: string, imagePath?: string }[] = [];
+    static soundboardEnabled: boolean = true;
+    static bindings: Bind[] = [];
+    static toggleHotkey: string = '';
+
+    private static registerAllShortcuts() {
+        for (let bind of Main.bindings) {
+            if (bind.key) {
+                try {
+                    globalShortcut.register(bind.key, () => {
+                        if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
+                            Main.mainWindow.webContents.send('APP_keypressed', bind.key);
+                        }
+                    });
+                } catch (e) {
+                    console.log(`Failed to register ${bind.key}:`, e);
+                }
+            }
+        }
+    }
+
+    private static updateIcons(enabled: boolean) {
+        const iconName = enabled ? 'icon_active.png' : 'icon_disabled.png';
+        const iconPath = isDev
+            ? path.join(app.getAppPath(), 'public', iconName)
+            : path.join(__dirname, iconName);
+
+        if (fs.existsSync(iconPath)) {
+            const image = nativeImage.createFromPath(iconPath);
+            if (Main.tray) {
+                Main.tray.setImage(image);
+            }
+            if (Main.mainWindow) {
+                Main.mainWindow.setIcon(image);
+            }
+        } else {
+            // Fallback to default icon if specialized ones are missing
+            const defaultIconPath = isDev
+                ? path.join(app.getAppPath(), 'public', 'icon.png')
+                : path.join(__dirname, 'icon.png');
+            if (fs.existsSync(defaultIconPath)) {
+                const image = nativeImage.createFromPath(defaultIconPath);
+                if (Main.tray) Main.tray.setImage(image);
+                if (Main.mainWindow) Main.mainWindow.setIcon(image);
+            }
+        }
+    }
+
+    private static setToggleHotkey(key: string) {
+        if (Main.toggleHotkey) {
+            try {
+                globalShortcut.unregister(Main.toggleHotkey);
+            } catch (e) {}
+        }
+        Main.toggleHotkey = key;
+        if (key) {
+            try {
+                globalShortcut.register(key, () => {
+                    Main.toggleSoundboard();
+                });
+            } catch (e) {
+                console.log(`Failed to register toggle hotkey ${key}:`, e);
+            }
+        }
+    }
+
+    private static toggleSoundboard() {
+        Main.soundboardEnabled = !Main.soundboardEnabled;
+        if (Main.soundboardEnabled) {
+            Main.registerAllShortcuts();
+        } else {
+            Main.unregisterAllShortcuts();
+        }
+        Main.updateIcons(Main.soundboardEnabled);
+        if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
+            Main.mainWindow.webContents.send('APP_soundboardState', Main.soundboardEnabled);
+        }
+    }
+
+    private static unregisterAllShortcuts() {
+        for (let bind of Main.bindings) {
+            if (bind.key) {
+                try {
+                    globalShortcut.unregister(bind.key);
+                } catch (e) {}
+            }
+        }
+    }
 
     private static onWindowAllClosed() {
         if (process.platform !== 'darwin') {
@@ -100,6 +187,8 @@ export default class Main {
         Main.tray.addListener('click', (e) => {
             Main.mainWindow.show()
         })
+
+        Main.updateIcons(Main.soundboardEnabled);
 
         Main.initExpressServer();
     }
@@ -316,45 +405,68 @@ export default class Main {
     
 
     private static listenerHotkey() {
-        let keys : string[] = [] // Keep track of keys 
-        let names : string[] = [] // Corrosponding File Names for Shortcuts
-
-        let bindings : Bind[] = []
-
         ipcMain.on('APP_setkey', (event, key : string, title : string, ...args) => {
-            
-            let keyIndex = names.indexOf(title) // Check if a Shortcut is already registered 
             let exists = false
 
-            for (let bind of bindings) {
+            for (let bind of Main.bindings) {
                 if (bind.name === title) {
                     exists = true
-                    try {
-                        globalShortcut.unregister(bind.key) // delete old Hotkey
-                    } catch {
-                        console.log("Failed")
+                    if (Main.soundboardEnabled && bind.key) {
+                        try {
+                            globalShortcut.unregister(bind.key) // delete old Hotkey
+                        } catch {
+                            console.log("Failed to unregister old hotkey")
+                        }
                     }
                     bind.key = key
                 }
             }
 
             if (!exists) {
-                bindings.push({
+                Main.bindings.push({
                     key: key,
                     name: title
                 })
             }
 
-
-            try {
-                globalShortcut.register(key, () => {
-                    event.reply('APP_keypressed', key)
-                })
-            } catch (error) {
-                console.log(error)
+            if (Main.soundboardEnabled && key) {
+                try {
+                    globalShortcut.register(key, () => {
+                        if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
+                            Main.mainWindow.webContents.send('APP_keypressed', key)
+                        }
+                    })
+                } catch (error) {
+                    console.log(error)
+                }
             }
+        })
 
-            console.log(bindings)
+        ipcMain.on('APP_setToggleKey', (event, key: string) => {
+            Main.setToggleHotkey(key)
+        })
+
+        ipcMain.on('APP_toggleSoundboard', (event) => {
+            Main.toggleSoundboard()
+        })
+
+        ipcMain.on('APP_getSoundboardState', (event) => {
+            event.reply('APP_soundboardState', Main.soundboardEnabled)
+        })
+
+        ipcMain.on('APP_setSoundboardEnabled', (event, enabled: boolean) => {
+            if (Main.soundboardEnabled !== enabled) {
+                Main.soundboardEnabled = enabled
+                if (Main.soundboardEnabled) {
+                    Main.registerAllShortcuts()
+                } else {
+                    Main.unregisterAllShortcuts()
+                }
+                Main.updateIcons(Main.soundboardEnabled);
+                if (Main.mainWindow && !Main.mainWindow.isDestroyed()) {
+                    Main.mainWindow.webContents.send('APP_soundboardState', Main.soundboardEnabled)
+                }
+            }
         })
     }
 

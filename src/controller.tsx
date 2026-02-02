@@ -2,6 +2,7 @@ import { readlink } from 'fs'
 import React, { useRef, useState, useEffect } from 'react'
 import Pad from './pad'
 import Recorder from './Recorder'
+import ToggleSoundboard from './ToggleSoundboard'
 const { myIpcRenderer } = window
 
 
@@ -103,6 +104,15 @@ const Controller : React.FunctionComponent = () => {
         let dir = localStorage.getItem('dir')
         if (dir) myIpcRenderer.send('APP_listFiles', dir)
 
+        let savedState = localStorage.getItem('soundboard_enabled')
+        if (savedState !== null) {
+            myIpcRenderer.send('APP_setSoundboardEnabled', savedState === 'true')
+        }
+
+        const removeSoundboardStateListener = myIpcRenderer.on('APP_soundboardState', (state: boolean) => {
+            localStorage.setItem('soundboard_enabled', state.toString())
+        })
+
         navigator.mediaDevices.enumerateDevices()
             .then( devices => {
                 devices = devices.filter((output) => output.kind === "audiooutput")
@@ -137,6 +147,9 @@ const Controller : React.FunctionComponent = () => {
             }
             if (removePlaySoundListener) {
                 removePlaySoundListener();
+            }
+            if (removeSoundboardStateListener) {
+                removeSoundboardStateListener();
             }
         };
     }, [])
@@ -200,7 +213,7 @@ const Controller : React.FunctionComponent = () => {
                 </div>
 
                 <Recorder></Recorder>
-            
+                <ToggleSoundboard></ToggleSoundboard>
             
             </div>
 
