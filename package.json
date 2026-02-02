@@ -2,6 +2,7 @@
   "name": "soundboard",
   "version": "0.2.4",
   "private": true,
+  "main": "build/electron.js",
   "homepage": "./",
   "typings": "types.d.ts",
   "author": {
@@ -33,7 +34,7 @@
     "test": "react-scripts test",
     "e-dev": "electron build/electron.js",
     "eject": "react-scripts eject",
-    "electron-pack": "electron-builder --em.main=build/main.js"
+    "electron-pack": "electron-builder --em.main=build/electron.js"
   },
   "build": {
     "icon": "build/icon.png",
