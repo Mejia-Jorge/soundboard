@@ -190,7 +190,7 @@ option {
 }
 #settings {
     display: grid;
-    grid-template-columns: auto auto 30% 200px;
+    grid-template-columns: auto auto 30% 200px 200px;
     grid-template-rows: auto;
     column-gap: 25px;
 }
@@ -205,6 +205,31 @@ option {
     border-radius: 10px;
 }
 
+.status-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.led-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.2);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.led-on {
+    background-color: #00ff00;
+    box-shadow: 0 0 10px #00ff00;
+}
+
+.led-off {
+    background-color: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
+}
+
 #recorder button {
     width: 100%;
     min-width: 0;
@@ -216,6 +241,20 @@ option {
 
 #recorder button p {
     margin: auto;
+}
+
+#toggle-soundboard {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    row-gap: 10px;
+    padding: 30px;
+    border: solid rgba(255, 255, 255, 0.356) 1px;
+    border-radius: 10px;
+}
+
+#toggle-soundboard button {
+    width: 100%;
 }
 
 .spinner {
@@ -287,4 +326,12 @@ option {
 
 .btn-important:hover {
     background-color:#7a3e54;
+}
+
+.btn-success {
+    background-color: #438e64;
+}
+
+.btn-success:hover {
+    background-color: #3b7d58;
 }
