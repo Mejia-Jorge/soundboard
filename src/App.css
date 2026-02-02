@@ -221,13 +221,13 @@ option {
 }
 
 .led-on {
-    background-color: #ff0000;
-    box-shadow: 0 0 10px #ff0000;
+    background-color: #00ff00;
+    box-shadow: 0 0 10px #00ff00;
 }
 
 .led-off {
-    background-color: #434c5e;
-    box-shadow: 0 0 5px #000;
+    background-color: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
 }
 
 #recorder button {
@@ -326,4 +326,12 @@ option {
 
 .btn-important:hover {
     background-color:#7a3e54;
+}
+
+.btn-success {
+    background-color: #438e64;
+}
+
+.btn-success:hover {
+    background-color: #3b7d58;
 }

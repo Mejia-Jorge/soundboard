@@ -9,26 +9,49 @@ const ToggleSoundboard: React.FunctionComponent = () => {
 
     const generateDynamicIcon = (isEnabled: boolean) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
+        const size = 256; // Higher resolution for better taskbar support
+        canvas.width = size;
+        canvas.height = size;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
         const img = new Image();
         img.src = 'icon.png';
         img.onload = () => {
-            ctx.drawImage(img, 0, 0, 64, 64);
-            if (isEnabled) {
-                // Draw LED dot (Red like OBS)
-                ctx.beginPath();
-                ctx.arc(50, 14, 10, 0, 2 * Math.PI);
-                ctx.fillStyle = '#ff0000';
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+            ctx.drawImage(img, 0, 0, size, size);
+
+            // Draw LED dot (OBS-style)
+            // ON -> Green, OFF -> Red
+            const radius = size * 0.15;
+            const x = size * 0.8;
+            const y = size * 0.2;
+
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = isEnabled ? '#00ff00' : '#ff0000';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.03;
+            ctx.stroke();
+
+            const fullIcon = canvas.toDataURL();
+
+            // Create separate overlay for Windows Taskbar
+            const overlayCanvas = document.createElement('canvas');
+            overlayCanvas.width = 128;
+            overlayCanvas.height = 128;
+            const octx = overlayCanvas.getContext('2d');
+            if (octx) {
+                octx.beginPath();
+                octx.arc(64, 64, 50, 0, 2 * Math.PI);
+                octx.fillStyle = isEnabled ? '#00ff00' : '#ff0000';
+                octx.fill();
+                octx.strokeStyle = '#ffffff';
+                octx.lineWidth = 8;
+                octx.stroke();
             }
-            myIpcRenderer.send('APP_updateIcon', canvas.toDataURL());
+
+            myIpcRenderer.send('APP_updateIcon', fullIcon, overlayCanvas.toDataURL());
         };
     };
 
@@ -118,7 +141,7 @@ const ToggleSoundboard: React.FunctionComponent = () => {
             </div>
             <button
                 onClick={toggle}
-                className={enabled ? "pad btn-important" : "pad"}
+                className={enabled ? "pad btn-success" : "pad btn-important"}
                 onContextMenu={handleContext}
                 onMouseOut={() => handleButtonHover('out')}
                 onMouseEnter={() => handleButtonHover('in')}

@@ -438,10 +438,16 @@ export default class Main {
             }
         })
 
-        ipcMain.on('APP_updateIcon', (event, dataUrl: string) => {
+        ipcMain.on('APP_updateIcon', (event, dataUrl: string, overlayUrl?: string) => {
             const image = nativeImage.createFromDataURL(dataUrl);
             if (Main.tray) Main.tray.setImage(image);
-            if (Main.mainWindow) Main.mainWindow.setIcon(image);
+            if (Main.mainWindow) {
+                Main.mainWindow.setIcon(image);
+                if (overlayUrl && process.platform === 'win32') {
+                    const overlay = nativeImage.createFromDataURL(overlayUrl);
+                    Main.mainWindow.setOverlayIcon(overlay, Main.soundboardEnabled ? 'Soundboard Enabled' : 'Soundboard Disabled');
+                }
+            }
         });
     }
 
