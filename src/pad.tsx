@@ -23,6 +23,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const [shortcut, setShortcut] = useState<string>('')
 
     const [buttonFocus, setButtonFocus] = useState<boolean>(false)
+    const [localVolume, setLocalVolume] = useState<number>(1.0)
     const removeListenerRef = useRef<Function>()
 
     
@@ -69,24 +70,40 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         // -------
         // Main Method to record Shortcuts
         // -------
+        event.preventDefault()
 
         if (buttonFocus && event.key === 'Escape') {
-            keys = []
             setShortcut('')
             setShortcutText('')
             props.name && localStorage.removeItem(props.name)
             myIpcRenderer.send('APP_setkey', '', props.name)
+            setButtonFocus(false)
             return
         }
 
-        if (buttonFocus && keys.length < 4) {
-            // Max Keybinding length is set to 4 in this case
-            keys.push(event.key)
-            let shortcutString = keys.join('+')
+        if (buttonFocus) {
+            if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) {
+                return;
+            }
+
+            let parts = [];
+            if (event.ctrlKey) parts.push('Control');
+            if (event.shiftKey) parts.push('Shift');
+            if (event.altKey) parts.push('Alt');
+            if (event.metaKey) parts.push('Meta');
+
+            let key = event.key;
+            if (key === ' ') key = 'Space';
+            if (key.length === 1) key = key.toUpperCase();
+
+            parts.push(key);
+
+            let shortcutString = parts.join('+');
 
             myIpcRenderer.send('APP_setkey', shortcutString, props.name)
             setShortcutText(shortcutString)
             setShortcut(shortcutString)
+            setButtonFocus(false)
         }
         
     }
@@ -105,6 +122,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         setShortcut('')
         setShortcutText('')
         loadHotkey()
+
+        if (props.name) {
+            let savedVol = localStorage.getItem(`vol_${props.name}`)
+            if (savedVol) setLocalVolume(parseFloat(savedVol))
+        }
     }, [props.name]) 
     
     useEffect(() =>{
@@ -128,10 +150,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     useEffect(() => {
 
         // Apply logarithmic scaling of linear 0 ... 1 scale to 0 ... 1 logarithmic (not perfectly accurate decibel scale)
-        primaryAudioRef.current!.volume = Math.exp((Math.log(props.volume) / Math.log(10)) * 4)
-        secondaryAudioRef.current!.volume = Math.exp((Math.log(props.virtualVolume) / Math.log(10)) * 4)
+        // Combine with individual localVolume
+        primaryAudioRef.current!.volume = Math.exp((Math.log(props.volume * localVolume) / Math.log(10)) * 4)
+        secondaryAudioRef.current!.volume = Math.exp((Math.log(props.virtualVolume * localVolume) / Math.log(10)) * 4)
         
-    }, [props.volume, props.virtualVolume])
+    }, [props.volume, props.virtualVolume, localVolume])
 
     useEffect(() => {
         if (props.name && props.registerPlayFunction) {
@@ -141,20 +164,26 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
 
 
+    const handleVolumeChange = (e: React.FormEvent<HTMLInputElement>) => {
+        let val = parseFloat(e.currentTarget.value) / 100
+        setLocalVolume(val)
+        if (props.name) localStorage.setItem(`vol_${props.name}`, val.toString())
+    }
+
     const handleButtonHover = (state: string) => {
         if (state === 'in') {
-            setShortcutText('Rightclick to enter hotkey') 
+            if (!buttonFocus) setShortcutText('Rightclick to enter hotkey / Esc to clear')
         }
         
         if (state === 'out') {
             setShortcutText(shortcut)
-            setButtonFocus(false)
+            if (!buttonFocus) setButtonFocus(false)
         }
     }
 
 
     return (
-    <div>
+    <div className="pad-container">
         <audio ref={primaryAudioRef} src={ props.source } preload="auto"/>
         <audio ref={secondaryAudioRef} src={ props.source } preload="auto"/>
         <button onClick={play} 
@@ -164,8 +193,17 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 onMouseEnter={() => handleButtonHover('in')}
                 onKeyDown={handleKeyDown}>
             {props.name && props.name.slice(0, props.name.indexOf('.'))} <br/>
-            {shortcutText}
+            <span className="shortcut-display">{shortcutText}</span>
         </button>
+        <input
+            type="range"
+            min="0"
+            max="100"
+            value={localVolume * 100}
+            onInput={handleVolumeChange}
+            className="pad-volume"
+            title="Individual Volume"
+        />
     </div>
     )
 }
