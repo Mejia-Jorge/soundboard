@@ -1,5 +1,5 @@
 import './App.css';
-import React, { MouseEventHandler, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const { myIpcRenderer } = window
 
@@ -22,7 +22,7 @@ const Recorder : React.FunctionComponent = () => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const audioRef = useRef<HTMLAudioElement>(null)
     const chunksRef = useRef<Blob[]>([])
-    const recorderRef = useRef<MediaRecorder | null>()
+    const recorderRef = useRef<MediaRecorder | null>(null)
     const [recording, setRecording] = useState<boolean>(false)
     const [shadow, setShadow] = useState<boolean>(false)
     
@@ -38,9 +38,9 @@ const Recorder : React.FunctionComponent = () => {
 
     const prepareRecording = async () => {
         
-        let stream : MediaStream | null = await navigator.mediaDevices.getUserMedia(constraints as any)
-        stream.getVideoTracks()[0].stop()
-        let audioStream : MediaStream = new MediaStream(stream.getAudioTracks())
+        let stream : MediaStream | null = await (navigator.mediaDevices as any).getUserMedia(constraints)
+        stream!.getVideoTracks()[0].stop()
+        let audioStream : MediaStream = new MediaStream(stream!.getAudioTracks())
         stream = null
         recorderRef.current = new MediaRecorder(audioStream, {mimeType: "audio/webm"})
 
@@ -59,9 +59,9 @@ const Recorder : React.FunctionComponent = () => {
     }
 
     const prepareShadow = async () => {
-        let stream: MediaStream | null = await navigator.mediaDevices.getUserMedia(constraints as any)
-        stream.getVideoTracks()[0].stop()
-        let audioStream: MediaStream = new MediaStream(stream.getAudioTracks())
+        let stream: MediaStream | null = await (navigator.mediaDevices as any).getUserMedia(constraints)
+        stream!.getVideoTracks()[0].stop()
+        let audioStream: MediaStream = new MediaStream(stream!.getAudioTracks())
         stream = null
         recorderRef.current = new MediaRecorder(audioStream, { mimeType: "audio/webm" })
         let cache = new Array<Blob>(30)

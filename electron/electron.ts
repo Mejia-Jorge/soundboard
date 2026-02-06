@@ -1,12 +1,20 @@
 import path from 'path'
-import isDev from'electron-is-dev'
+import { fileURLToPath } from 'url'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 import mime from 'mime'
 import express from 'express'
 import cors from 'cors'
 import { IpcMainEvent } from 'electron/main'
-import { autoUpdater } from "electron-updater" 
+import updaterPkg from "electron-updater"
+import logPkg from 'electron-log'
+
+const { autoUpdater } = updaterPkg;
+const log = logPkg.default || logPkg; // Handle different packaging
 
 const fspromise = fs.promises
 
@@ -17,9 +25,9 @@ interface Bind {
 
 
 export default class Main {
-    static mainWindow: Electron.BrowserWindow;
+    static mainWindow: BrowserWindow;
     static application: Electron.App;
-    static BrowserWindow;
+    static BrowserWindow: typeof BrowserWindow;
     static HotkeyEvent : IpcMainEvent
     static tray : Tray
     static Menu : Menu
@@ -97,6 +105,7 @@ export default class Main {
     }
 
     private static onReady() {
+        const isDev = !app.isPackaged;
         Main.mainWindow = new Main.BrowserWindow({ 
             width: 1460, 
             height: 1000,
@@ -106,26 +115,20 @@ export default class Main {
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                enableRemoteModule: false,
                 preload: path.join(__dirname, 'preload.js')
-    } 
+            }
         });
         Main.mainWindow.loadURL(isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../build/index.html')}`);
         Main.mainWindow.on('closed', Main.onClose);
 
-        
-
-        
-
-        Main.mainWindow.on("minimize", (e) => {
+        Main.mainWindow.on("minimize" as any, (e: any) => {
             e.preventDefault();
         })
 
-        const log = require("electron-log")
         log.transports.file.level = "debug"
         autoUpdater.logger = log
 
-        autoUpdater.on('error', (error) => {
+        autoUpdater.on('error', (error: any) => {
             console.error('AutoUpdater Error: ', error == null ? "unknown" : (error.stack || error).toString())
         })
         if (!isDev) {
@@ -168,7 +171,7 @@ export default class Main {
         const port = 3001;
 
         // Serve remote.html at the root path
-        expressApp.get('/', (req, res) => {
+        expressApp.get('/', (req: any, res: any) => {
             // This assumes remote.html is directly in the build output directory (e.g., build/remote.html)
             // This is consistent with the existing log message that suggests /remote.html
             res.sendFile(path.join(__dirname, 'remote.html'));
@@ -184,11 +187,11 @@ export default class Main {
 
         expressApp.use(cors());
 
-        expressApp.get('/hello', (req, res) => {
+        expressApp.get('/hello', (req: any, res: any) => {
             res.json({ message: "Hello from Electron Express server!" });
         });
 
-        expressApp.get('/play-sound/:soundName', (req, res) => {
+        expressApp.get('/play-sound/:soundName', (req: any, res: any) => {
             const soundName = req.params.soundName;
             if (Main.mainWindow && Main.mainWindow.webContents) {
                 Main.mainWindow.webContents.send('PLAY_SOUND_FROM_WEB', soundName);
@@ -198,7 +201,7 @@ export default class Main {
             }
         });
 
-        expressApp.get('/get-sounds', (req, res) => {
+        expressApp.get('/get-sounds', (req: any, res: any) => {
             const soundsWithDataUrls = Main.currentSounds.map(sound => {
                 const responseSound: { name: string, path?: string, imagePath?: string, imageDataUrl?: string } = { 
                     name: sound.name,
@@ -236,6 +239,7 @@ export default class Main {
 
     private static listenerVersion() {
         ipcMain.on('APP_getVersion', (event) => {
+            const isDev = !app.isPackaged;
             if (!isDev) {
                 autoUpdater.on('update-available', (info) => {
                     event.reply('APP_currentVersion', info)
@@ -461,7 +465,7 @@ export default class Main {
             })
 
             if (filePath) fspromise.writeFile(filePath, data)
-                .then(event.reply('APP_saveSuccess', true))
+                .then(() => event.reply('APP_saveSuccess', true))
                 .catch((e) => console.log(e))
         } )
     }
@@ -496,4 +500,3 @@ export default class Main {
 
 
 Main.main(app, BrowserWindow)
-

@@ -21,14 +21,14 @@ const Controller : React.FunctionComponent = () => {
     const volumeRef = useRef<HTMLInputElement>(null)
     const virtualVolumeRef = useRef<HTMLInputElement>(null)
     const soundPlaybackMapRef = useRef(new Map<string, () => void>());
-    const audioContextRef = useRef<AudioContext>();
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     const getAudioContext = () => {
         if (!audioContextRef.current) {
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             audioContextRef.current = new AudioContextClass();
         }
-        return audioContextRef.current;
+        return audioContextRef.current!;
     }
     
     const primaryRef = useRef<HTMLSelectElement>(null)
