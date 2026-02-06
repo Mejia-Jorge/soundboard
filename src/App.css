@@ -48,11 +48,41 @@ header {
     word-break: break-word;
     background-color: #8fbcbb;
     border: none;
-    border-radius: 10px;
+    border-radius: 10px 10px 0 0;
     color: white;
     padding: 10px;
     width: 140px;
-    height: 90px;
+    height: 70px;
+}
+
+.pad-container {
+    display: flex;
+    flex-direction: column;
+    width: 140px;
+}
+
+.pad-volume {
+    width: 140px;
+    height: 20px;
+    -webkit-appearance: none;
+    background: #3b4252;
+    border-radius: 0 0 10px 10px;
+    outline: none;
+}
+
+.pad-volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 20px;
+    background: #d08770;
+    cursor: pointer;
+    border-radius: 0;
+}
+
+.shortcut-display {
+    font-size: 0.8em;
+    opacity: 0.8;
 }
 
 button {
