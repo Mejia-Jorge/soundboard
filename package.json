@@ -104,6 +104,15 @@
     "wait-on": "^9.0.3"
   },
   "overrides": {
-    "postcss": "^8.5.6"
+    "postcss": "^8.5.6",
+    "postcss-safe-parser": "^6.0.0",
+    "resolve-url-loader": "^5.0.0",
+    "postcss-normalize": "^10.0.1"
+  },
+  "resolutions": {
+    "postcss": "^8.5.6",
+    "postcss-safe-parser": "^6.0.0",
+    "resolve-url-loader": "^5.0.0",
+    "postcss-normalize": "^10.0.1"
   }
 }
