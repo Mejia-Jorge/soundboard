@@ -1,7 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react'
-import Colorselect from './Colorselect'
 const { myIpcRenderer } = window
-
 
 
 interface PadProps {
@@ -10,14 +8,27 @@ interface PadProps {
     name: string | undefined;
     volume: number;
     virtualVolume: number;
+    audioContext: AudioContext;
     registerPlayFunction?: (name: string, playFn: () => void) => void;
 }
 
-let keys : string[] = [] // Could also be converted to variable ref inside component
+// Extended interface for sinkId support
+interface ExtendedAudioElement extends HTMLAudioElement {
+    setSinkId(sinkId: string): Promise<void>;
+}
 
 const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
-    const primaryAudioRef = useRef<ExtendedAudioElement>(null) 
-    const secondaryAudioRef = useRef<ExtendedAudioElement>(null)
+    // Hidden sources
+    const primarySourceRef = useRef<ExtendedAudioElement>(null)
+    const secondarySourceRef = useRef<ExtendedAudioElement>(null)
+
+    // Sink elements (those that actually output sound to devices)
+    const primarySinkRef = useRef<ExtendedAudioElement>(null)
+    const secondarySinkRef = useRef<ExtendedAudioElement>(null)
+
+    // Web Audio nodes
+    const primaryGainRef = useRef<GainNode>()
+    const secondaryGainRef = useRef<GainNode>()
 
     const [shortcutText, setShortcutText] = useState<string>()
     const [shortcut, setShortcut] = useState<string>('')
@@ -28,48 +39,52 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     
     const setPrimaryOutput = (output : string) => {
-        primaryAudioRef.current?.setSinkId(output)
+        primarySinkRef.current?.setSinkId(output)
     }
 
     const setSecondaryOutput = (output : string) => {
-        secondaryAudioRef.current?.setSinkId(output)
+        secondarySinkRef.current?.setSinkId(output)
     }
 
     const play = () => {
-        if (primaryAudioRef.current) {
+        // Start AudioContext on user interaction
+        if (props.audioContext.state === 'suspended') {
+            props.audioContext.resume();
+        }
+
+        if (primarySourceRef.current) {
             // Check if the audio is currently playing
-            if (!primaryAudioRef.current.paused && primaryAudioRef.current.currentTime > 0) {
-                primaryAudioRef.current.pause();
-                primaryAudioRef.current.currentTime = 0;
-                if (secondaryAudioRef.current) {
-                    secondaryAudioRef.current.pause();
-                    secondaryAudioRef.current.currentTime = 0;
+            if (!primarySourceRef.current.paused && primarySourceRef.current.currentTime > 0) {
+                primarySourceRef.current.pause();
+                primarySourceRef.current.currentTime = 0;
+                if (secondarySourceRef.current) {
+                    secondarySourceRef.current.pause();
+                    secondarySourceRef.current.currentTime = 0;
                 }
             } else {
                 // If not playing, reset and play
-                primaryAudioRef.current.currentTime = 0;
-                if (secondaryAudioRef.current) {
-                    secondaryAudioRef.current.currentTime = 0;
+                primarySourceRef.current.currentTime = 0;
+                if (secondarySourceRef.current) {
+                    secondarySourceRef.current.currentTime = 0;
                 }
-                primaryAudioRef.current.play().catch(error => console.error("Error playing primary audio:", error));
-                if (secondaryAudioRef.current) {
-                    secondaryAudioRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+                primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
+                if (secondarySourceRef.current) {
+                    secondarySourceRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
                 }
+
+                // Ensure sink elements are also "playing" (they play the stream)
+                primarySinkRef.current?.play().catch(() => {});
+                secondarySinkRef.current?.play().catch(() => {});
             }
         }
     }
 
     const handleContext = (event : React.MouseEvent<HTMLButtonElement>) => {
         setButtonFocus(true)
-        keys = []
         setShortcutText('Recording...')
-
     }
 
     const handleKeyDown = (event : React.KeyboardEvent<HTMLButtonElement>) => {
-        // -------
-        // Main Method to record Shortcuts
-        // -------
         event.preventDefault()
 
         if (buttonFocus && event.key === 'Escape') {
@@ -105,7 +120,6 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             setShortcut(shortcutString)
             setButtonFocus(false)
         }
-        
     }
     
     const loadHotkey = () => {
@@ -117,6 +131,34 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             myIpcRenderer.send('APP_setkey', key, props.name)
         }
     }
+
+    // Initialize Web Audio Graph
+    useEffect(() => {
+        if (props.audioContext && primarySourceRef.current && secondarySourceRef.current && primarySinkRef.current && secondarySinkRef.current) {
+            const ctx = props.audioContext;
+
+            const pSource = ctx.createMediaElementSource(primarySourceRef.current);
+            const sSource = ctx.createMediaElementSource(secondarySourceRef.current);
+
+            const pGain = ctx.createGain();
+            const sGain = ctx.createGain();
+
+            primaryGainRef.current = pGain;
+            secondaryGainRef.current = sGain;
+
+            const pDest = ctx.createMediaStreamDestination();
+            const sDest = ctx.createMediaStreamDestination();
+
+            pSource.connect(pGain);
+            pGain.connect(pDest);
+
+            sSource.connect(sGain);
+            sGain.connect(sDest);
+
+            primarySinkRef.current.srcObject = pDest.stream;
+            secondarySinkRef.current.srcObject = sDest.stream;
+        }
+    }, [props.audioContext])
 
     useEffect(() => {
         setShortcut('')
@@ -148,11 +190,25 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     }, [shortcut])
     
     useEffect(() => {
+        // Apply volume logic
+        // For standard volume property, we still apply the scaling
+        // For GainNode, we apply it directly.
 
-        // Apply logarithmic scaling of linear 0 ... 1 scale to 0 ... 1 logarithmic (not perfectly accurate decibel scale)
-        // Combine with individual localVolume
-        primaryAudioRef.current!.volume = Math.exp((Math.log(props.volume * localVolume) / Math.log(10)) * 4)
-        secondaryAudioRef.current!.volume = Math.exp((Math.log(props.virtualVolume * localVolume) / Math.log(10)) * 4)
+        // Final combined volume (linear scale)
+        const combinedPrimary = props.volume * localVolume;
+        const combinedSecondary = props.virtualVolume * localVolume;
+
+        // Use the same exponential scaling for the gain value
+        // Math.exp((Math.log(x) / Math.log(10)) * 4) = x^1.74 approx
+        const pGainValue = combinedPrimary > 0 ? Math.exp((Math.log(combinedPrimary) / Math.log(10)) * 4) : 0;
+        const sGainValue = combinedSecondary > 0 ? Math.exp((Math.log(combinedSecondary) / Math.log(10)) * 4) : 0;
+
+        if (primaryGainRef.current) {
+            primaryGainRef.current.gain.value = pGainValue;
+        }
+        if (secondaryGainRef.current) {
+            secondaryGainRef.current.gain.value = sGainValue;
+        }
         
     }, [props.volume, props.virtualVolume, localVolume])
 
@@ -160,7 +216,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (props.name && props.registerPlayFunction) {
             props.registerPlayFunction(props.name, play);
         }
-    }, [props.name, props.source, props.registerPlayFunction]); // play is stable, props.source ensures re-registration if source changes
+    }, [props.name, props.source, props.registerPlayFunction]);
 
 
 
@@ -184,8 +240,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     return (
     <div className="pad-container">
-        <audio ref={primaryAudioRef} src={ props.source } preload="auto"/>
-        <audio ref={secondaryAudioRef} src={ props.source } preload="auto"/>
+        {/* Source elements */}
+        <audio ref={primarySourceRef} src={ props.source } preload="auto" crossOrigin="anonymous" />
+        <audio ref={secondarySourceRef} src={ props.source } preload="auto" crossOrigin="anonymous" />
+
+        {/* Sink elements */}
+        <audio ref={primarySinkRef} preload="auto" />
+        <audio ref={secondarySinkRef} preload="auto" />
+
         <button onClick={play} 
                 className="pad"
                 onContextMenu={handleContext}
@@ -198,11 +260,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         <input
             type="range"
             min="0"
-            max="100"
+            max="200"
             value={localVolume * 100}
             onInput={handleVolumeChange}
             className="pad-volume"
-            title="Individual Volume"
+            title={`Individual Volume: ${Math.round(localVolume * 100)}%`}
         />
     </div>
     )
