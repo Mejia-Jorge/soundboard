@@ -109,6 +109,10 @@ button:active {
     
 }
 
+.pad.playing {
+    background-color: #a3be8c;
+}
+
 .pad:active {
     background-color:#af7360 ;
 }
