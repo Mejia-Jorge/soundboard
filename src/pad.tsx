@@ -27,15 +27,15 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const secondarySinkRef = useRef<ExtendedAudioElement>(null)
 
     // Web Audio nodes
-    const primaryGainRef = useRef<GainNode>()
-    const secondaryGainRef = useRef<GainNode>()
+    const primaryGainRef = useRef<GainNode | null>(null)
+    const secondaryGainRef = useRef<GainNode | null>(null)
 
     const [shortcutText, setShortcutText] = useState<string>()
     const [shortcut, setShortcut] = useState<string>('')
 
     const [buttonFocus, setButtonFocus] = useState<boolean>(false)
     const [localVolume, setLocalVolume] = useState<number>(1.0)
-    const removeListenerRef = useRef<Function>()
+    const removeListenerRef = useRef<Function | null>(null)
 
     
     const setPrimaryOutput = (output : string) => {

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "ESNext",
     "lib": [
       "dom",
       "dom.iterable",
@@ -9,6 +9,8 @@
     "types": [
         "dom-mediacapture-record",
         "node",
+        "jest",
+        "@testing-library/jest-dom"
     ],
     "allowJs": true,
     "skipLibCheck": true,
