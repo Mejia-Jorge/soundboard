@@ -87,8 +87,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             if (!primarySourceRef.current.paused && primarySourceRef.current.currentTime > 0) {
                 if (fadeOutRef.current) {
                     // Start fade out
+                    primaryGainRef.current?.gain.cancelScheduledValues(now);
                     primaryGainRef.current?.gain.setValueAtTime(primaryGainRef.current.gain.value, now);
                     primaryGainRef.current?.gain.linearRampToValueAtTime(0, now + FADE_DURATION);
+
+                    secondaryGainRef.current?.gain.cancelScheduledValues(now);
                     secondaryGainRef.current?.gain.setValueAtTime(secondaryGainRef.current.gain.value, now);
                     secondaryGainRef.current?.gain.linearRampToValueAtTime(0, now + FADE_DURATION);
 
@@ -127,7 +130,10 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 }
 
                 if (fadeInRef.current) {
+                    primaryGainRef.current?.gain.cancelScheduledValues(now);
                     primaryGainRef.current?.gain.setValueAtTime(0, now);
+
+                    secondaryGainRef.current?.gain.cancelScheduledValues(now);
                     secondaryGainRef.current?.gain.setValueAtTime(0, now);
 
                     primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
@@ -369,6 +375,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         {/* Source elements */}
         <audio ref={primarySourceRef}
                src={ props.source }
+               muted
                preload="auto"
                crossOrigin="anonymous"
                onPlay={() => setIsPlaying(true)}
@@ -376,6 +383,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                onEnded={() => setIsPlaying(false)} />
         <audio ref={secondarySourceRef}
                src={ props.source }
+               muted
                preload="auto"
                crossOrigin="anonymous"
                onPlay={() => setIsPlaying(true)}
