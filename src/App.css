@@ -348,6 +348,13 @@ option {
 }
 
 
+#web-ui-container {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 0px;
+}
+
 #version {
     display: flex;
     width: 100%;

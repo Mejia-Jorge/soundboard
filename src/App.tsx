@@ -47,6 +47,29 @@ const Version : React.FunctionComponent = () => {
     )
 }
 
+const WebUILink : React.FunctionComponent = () => {
+    const [webUIUrl, setWebUIUrl] = useState<string>('')
+
+    useEffect(() => {
+        const myIpcRenderer = getIpc();
+        if (myIpcRenderer) {
+            myIpcRenderer.invoke('APP_getWebUIUrl').then((url: string) => {
+                setWebUIUrl(url)
+            })
+        }
+    }, [])
+
+    if (!webUIUrl) return null;
+
+    return (
+        <div id="web-ui-container">
+            <a href={webUIUrl} target="_blank" rel="noreferrer" className="web-ui-link">
+                Open Web UI ({webUIUrl})
+            </a>
+        </div>
+    )
+}
+
 const App : React.FunctionComponent = () => {
     
 
@@ -55,6 +78,7 @@ const App : React.FunctionComponent = () => {
             
             <Menu/>
             <Controller/>
+            <WebUILink/>
             <Version/>
         </div>
     )

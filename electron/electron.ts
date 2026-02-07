@@ -1,6 +1,7 @@
 import path from 'path'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
+import os from 'os'
 
 import mime from 'mime'
 import express from 'express'
@@ -238,6 +239,26 @@ export default class Main {
     }
 
 
+
+    private static getLocalIP() {
+        const interfaces = os.networkInterfaces();
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name]!) {
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    return iface.address;
+                }
+            }
+        }
+        return 'localhost';
+    }
+
+    private static listenerWebUI() {
+        ipcMain.handle('APP_getWebUIUrl', (event) => {
+            const port = 3001;
+            const ip = Main.getLocalIP();
+            return `http://${ip}:${port}/remote.html`;
+        });
+    }
 
     private static listenerVersion() {
         ipcMain.on('APP_getVersion', (event) => {
@@ -496,6 +517,7 @@ export default class Main {
         this.listenerRecording()
         this.listenerListFiles()
         this.listenerVersion()
+        this.listenerWebUI()
     }
 }
 
