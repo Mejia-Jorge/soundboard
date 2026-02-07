@@ -78,13 +78,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     }
 
     const play = () => {
-        console.log(`Playing ${props.name}: fadeIn=${fadeInRef.current}, fadeOut=${fadeOutRef.current}`);
-
         // Start AudioContext on user interaction
         if (props.audioContext.state === 'suspended') {
-            props.audioContext.resume().then(() => {
-                console.log("AudioContext resumed");
-            });
+            props.audioContext.resume();
+        }
+
+        if (!isGraphInitialized) {
+            console.warn("Audio graph not initialized yet, attempting to play anyway...");
         }
 
         const ctx = props.audioContext;
@@ -138,14 +138,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 }
 
                 if (fadeInRef.current) {
-                    console.log("Starting fade in");
                     primaryGainRef.current?.gain.cancelScheduledValues(now);
                     primaryGainRef.current?.gain.setValueAtTime(0, now);
-                    primaryGainRef.current?.gain.setValueAtTime(0, now + 0.01); // Ensure it's 0
 
                     secondaryGainRef.current?.gain.cancelScheduledValues(now);
                     secondaryGainRef.current?.gain.setValueAtTime(0, now);
-                    secondaryGainRef.current?.gain.setValueAtTime(0, now + 0.01);
 
                     primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
                     if (secondarySourceRef.current) {
@@ -163,7 +160,6 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                         fadeInTimeoutRef.current = null;
                     }, FADE_DURATION * 1000);
                 } else {
-                    console.log("Starting without fade in");
                     // Ensure gain is correct before playing
                     const targetPrimary = getTargetGain(volumeRef.current * localVolumeRef.current);
                     const targetSecondary = getTargetGain(virtualVolumeRef.current * localVolumeRef.current);
@@ -179,13 +175,17 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 }
 
                 // Ensure sink elements are also "playing" (they play the stream)
-                // Re-assigning srcObject can sometimes help if the stream was stalled
+                // We ensure srcObject is set and play() is called.
                 if (primarySinkRef.current && pDestRef.current) {
-                    primarySinkRef.current.srcObject = pDestRef.current.stream;
+                    if (primarySinkRef.current.srcObject !== pDestRef.current.stream) {
+                        primarySinkRef.current.srcObject = pDestRef.current.stream;
+                    }
                     primarySinkRef.current.play().catch(() => {});
                 }
                 if (secondarySinkRef.current && sDestRef.current) {
-                    secondarySinkRef.current.srcObject = sDestRef.current.stream;
+                    if (secondarySinkRef.current.srcObject !== sDestRef.current.stream) {
+                        secondarySinkRef.current.srcObject = sDestRef.current.stream;
+                    }
                     secondarySinkRef.current.play().catch(() => {});
                 }
             }
@@ -294,19 +294,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             sSource.connect(sGain);
             sGain.connect(sDest);
 
-            // Important: also connect a silent gain to the main destination to keep the context active
-            const silentGain = ctx.createGain();
-            silentGain.gain.value = 0;
-            pGain.connect(silentGain);
-            silentGain.connect(ctx.destination);
-
             primarySinkRef.current.srcObject = pDest.stream;
             secondarySinkRef.current.srcObject = sDest.stream;
 
-            // Ensure source elements don't output directly to speakers
-            // We use a very low volume instead of muted/0 because it's more compatible
-            primarySourceRef.current.volume = 0.0001;
-            secondarySourceRef.current.volume = 0.0001;
+            primarySourceRef.current.volume = 1.0;
+            secondarySourceRef.current.volume = 1.0;
 
             setIsGraphInitialized(true);
         }
