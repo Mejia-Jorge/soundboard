@@ -270,7 +270,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                onPlay={() => setIsPlaying(true)}
                onPause={() => setIsPlaying(false)}
                onEnded={() => setIsPlaying(false)} />
-        <audio ref={secondarySourceRef} src={ props.source } preload="auto" crossOrigin="anonymous" />
+        <audio ref={secondarySourceRef}
+               src={ props.source }
+               preload="auto"
+               crossOrigin="anonymous"
+               onPlay={() => setIsPlaying(true)}
+               onPause={() => setIsPlaying(false)}
+               onEnded={() => setIsPlaying(false)} />
 
         {/* Sink elements */}
         <audio ref={primarySinkRef} preload="auto" />
