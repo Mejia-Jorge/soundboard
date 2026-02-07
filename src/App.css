@@ -61,13 +61,52 @@ header {
     width: 140px;
 }
 
-.pad-volume {
+.pad-volume-row {
+    display: flex;
+    flex-direction: row;
     width: 140px;
     height: 20px;
-    -webkit-appearance: none;
     background: #3b4252;
     border-radius: 0 0 10px 10px;
+    overflow: hidden;
+}
+
+.fade-toggle {
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    color: #4c566a;
+    font-size: 9px;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    min-width: 0;
+    padding: 0;
+}
+
+.fade-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.fade-toggle.active {
+    background: #a3be8c;
+    color: #2e3440;
+}
+
+.pad-volume {
+    flex-grow: 1;
+    width: 0;
+    height: 20px;
+    -webkit-appearance: none;
+    background: transparent;
+    border-radius: 0;
     outline: none;
+    margin: 0;
 }
 
 .pad-volume::-webkit-slider-thumb {
