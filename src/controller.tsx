@@ -1,11 +1,9 @@
-import { readlink } from 'fs'
 import React, { useRef, useState, useEffect } from 'react'
 import Pad from './pad'
 import Recorder from './Recorder'
 import ToggleSoundboard from './ToggleSoundboard'
-const { myIpcRenderer } = window
 
-
+const getIpc = () => (window as any).myIpcRenderer;
 
 const Controller : React.FunctionComponent = () => {
     const [paths, setPaths] = useState<string[]>()
@@ -110,6 +108,9 @@ const Controller : React.FunctionComponent = () => {
         // -------------------------------
         // Primary Entrypoint: Loads all Devices and the directory selection
         // -------------------------------
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         let dir = localStorage.getItem('dir')
         if (dir) myIpcRenderer.send('APP_listFiles', dir)
 
@@ -124,12 +125,16 @@ const Controller : React.FunctionComponent = () => {
 
         navigator.mediaDevices.enumerateDevices()
             .then( devices => {
+                console.log("Devices found:", devices);
                 devices = devices.filter((output) => output.kind === "audiooutput")
                 setOutputs(devices)
                 loadConfig()
             })
+            .catch(err => {
+                console.error("Error enumerating devices:", err);
+            })
         
-        const removeListedFilesListener = myIpcRenderer.on('APP_listedFiles', (result) => {
+        const removeListedFilesListener = myIpcRenderer.on('APP_listedFiles', (result: any) => {
            setPaths(result.paths)
            setPadNames(result.fileNames)
            localStorage.setItem("dir", result.dir)
@@ -161,10 +166,12 @@ const Controller : React.FunctionComponent = () => {
                 removeSoundboardStateListener();
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     
     const handlePathSelection = () => {
-        myIpcRenderer.invoke('APP_showDialog')
+        const myIpcRenderer = getIpc();
+        if (myIpcRenderer) myIpcRenderer.invoke('APP_showDialog')
     }
 
     const setSliderStyle = (e: HTMLInputElement, progress : number) => {

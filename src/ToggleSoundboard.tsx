@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-const { myIpcRenderer } = window
+
+const getIpc = () => (window as any).myIpcRenderer;
 
 const ToggleSoundboard: React.FunctionComponent = () => {
     const [enabled, setEnabled] = useState(true)
@@ -8,6 +9,9 @@ const ToggleSoundboard: React.FunctionComponent = () => {
     const [buttonFocus, setButtonFocus] = useState(false)
 
     const generateDynamicIcon = (isEnabled: boolean) => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         const canvas = document.createElement('canvas');
         const size = 256; // Higher resolution for better taskbar support
         canvas.width = size;
@@ -56,6 +60,9 @@ const ToggleSoundboard: React.FunctionComponent = () => {
     };
 
     useEffect(() => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         myIpcRenderer.send('APP_getSoundboardState')
         const removeStateListener = myIpcRenderer.on('APP_soundboardState', (state: boolean) => {
             setEnabled(state)
@@ -73,12 +80,14 @@ const ToggleSoundboard: React.FunctionComponent = () => {
         }
 
         return () => {
-            removeStateListener()
+            if (removeStateListener) removeStateListener()
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const toggle = () => {
-        myIpcRenderer.send('APP_toggleSoundboard')
+        const myIpcRenderer = getIpc();
+        if (myIpcRenderer) myIpcRenderer.send('APP_toggleSoundboard')
     }
 
     const handleContext = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -88,6 +97,9 @@ const ToggleSoundboard: React.FunctionComponent = () => {
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
         event.preventDefault()
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         if (buttonFocus && event.key === 'Escape') {
             setShortcut('')
             setShortcutText('')

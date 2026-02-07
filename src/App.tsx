@@ -1,22 +1,20 @@
 import './App.css';
 import React, { useEffect, useState } from 'react'
 import Controller from './controller'
-const { myIpcRenderer } = window
 
-
-
-
-
+const getIpc = () => (window as any).myIpcRenderer;
 
 const Menu : React.FunctionComponent = () => {
 
 
     const handleClose = () => {
-        myIpcRenderer.invoke('APP_close')
+        const myIpcRenderer = getIpc();
+        if (myIpcRenderer) myIpcRenderer.invoke('APP_close')
     }
 
     const handleMin = () => {
-        myIpcRenderer.invoke('APP_min')
+        const myIpcRenderer = getIpc();
+        if (myIpcRenderer) myIpcRenderer.invoke('APP_min')
     }
 
     return(<header>
@@ -30,9 +28,16 @@ const Version : React.FunctionComponent = () => {
     const [versionText, setVersionText] = useState<string>('pending')
 
     useEffect(() => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) {
+            console.error("myIpcRenderer not found. Are you running in Electron?");
+            setVersionText("BROWSER/ERROR");
+            return;
+        }
+
         myIpcRenderer.send('APP_getVersion')
 
-        myIpcRenderer.on('APP_currentVersion', (info) => {
+        myIpcRenderer.on('APP_currentVersion', (info: any) => {
             setVersionText(info)
         })
     }, [])
