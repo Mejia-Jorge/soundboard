@@ -3,7 +3,7 @@
   "version": "0.2.4",
   "private": true,
   "type": "module",
-  "main": "build/electron.js",
+  "main": "build/electron.cjs",
   "homepage": "./",
   "typings": "types.d.ts",
   "author": {
@@ -23,19 +23,22 @@
     "web-vitals": "^5.1.0"
   },
   "scripts": {
-    "react-start": "npm run compile | react-scripts start",
-    "start": "concurrently 'npm run react-start' 'wait-on http://localhost:3000 && electron build/electron.js'",
-    "winStart": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\\build\\electron.js\"",
+    "react-start": "set BROWSER=none && npm run compile | react-scripts start",
+    "start": "concurrently 'npm run react-start' 'wait-on http://localhost:3000 && electron build/electron.cjs'",
+    "winStart": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\\build\\electron.cjs\"",
     "electron-build": "npm run build && electron-builder",
-    "compile": "tsc -p tsconfig.electron.json",
+    "compile": "tsc -p tsconfig.electron.json && powershell -Command \"if (Test-Path build/electron.js) { Move-Item -Path build/electron.js -Destination build/electron.cjs -Force }; if (Test-Path build/preload.js) { Move-Item -Path build/preload.js -Destination build/preload.cjs -Force }\"",
     "compile-watch": "tsc -p tsconfig.electron.json -w",
     "build": "react-scripts build && npm run compile",
     "test": "react-scripts test",
-    "e-dev": "electron build/electron.js",
+    "e-dev": "electron build/electron.cjs",
     "eject": "react-scripts eject",
-    "electron-pack": "electron-builder --em.main=build/electron.js"
+    "electron-pack": "electron-builder --em.main=build/electron.cjs"
   },
   "build": {
+    "extraMetadata": {
+      "main": "build/electron.cjs"
+    },
     "icon": "build/icon.png",
     "appId": "com.example.electron-cra",
     "linux": {

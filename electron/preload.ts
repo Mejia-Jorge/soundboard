@@ -1,8 +1,10 @@
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
 function callIpcRenderer(method: string, channel: string, ...args: any[]) {
-    if (typeof channel !== 'string' || !channel.startsWith('APP_')) {
-        console.log('Error: IPC channel name not allowed');
+    const whitelist = ['PLAY_SOUND_FROM_WEB'];
+    if (typeof channel !== 'string' || (!channel.startsWith('APP_') && !whitelist.includes(channel))) {
+        console.log('Error: IPC channel name not allowed: ' + channel);
+        return;
     }
     if (['invoke', 'send'].includes(method)) {
         return (ipcRenderer as any)[method](channel, ...args);

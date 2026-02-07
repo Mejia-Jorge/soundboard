@@ -8,28 +8,47 @@ Simple Soundboard with a nice Nord UI
 
 #### Building from Source (recommended)
 Because the release is not signed, its probably better to build from source.
-Make sure you have a working `git`, `node` and `yarn` installation.
+Make sure you have a working `git`, `node` (v20+) and `npm` installation.
 Clone the source code to your machine: 
 
-```
+```powershell
 git clone https://github.com/LoredCast/soundboard.git
 cd soundboard
-yarn install
-yarn build
-yarn electron-build
+npm install
+npm run build
+npm run electron-build
 ```
 
 Installation files can now be found in the `/dist` folder.
 
-### Development Environment
-The following software versions were used for development:
-- Node.js: 12.x
-- Electron: ^11.2.1
-- electron-builder: ^22.9.1
-- react: ^17.0.1
-- react-dom: ^17.0.1
-- react-scripts: 4.0.1
-- typescript: ^4.1.3
+### Development & Debugging
+To run the application in development mode with **Developer Tools** (Console) enabled and live reload:
+
+```powershell
+npm run winStart
+```
+*Note: This will start the React dev server and open Electron pointing to it.*
+
+### Building for Production
+To create a production installer (`.exe`):
+
+```powershell
+npm run electron-build
+```
+This script will:
+1. Compile the React frontend.
+2. Compile the Electron Main/Preload scripts (using `.cjs` for Node 24+ compatibility).
+3. Package everything into an installer in the `dist/` directory.
+
+### Runtime Environment
+The following software versions are confirmed to work:
+- Node.js: v24.3.0 or higher (compatible with Node 20+)
+- npm: 11.4.2 or higher
+- Electron: ^40.2.1
+- React: ^19.2.4
+- TypeScript: ^5.9.3
+
+*Note: The project uses `.cjs` extensions for Electron components to ensure full compatibility with newer Node.js ESM restrictions.*
 
 #### Download the Installer
 If you trust my code and just want an `.exe`, there is an installer in the realeses section.

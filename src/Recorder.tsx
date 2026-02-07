@@ -1,7 +1,7 @@
 import './App.css';
 import React, { useEffect, useRef, useState } from 'react'
 
-const { myIpcRenderer } = window
+const getIpc = () => (window as any).myIpcRenderer;
 
 const constraints = {
     audio: {
@@ -19,8 +19,6 @@ const constraints = {
 
 const Recorder : React.FunctionComponent = () => {
 
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const audioRef = useRef<HTMLAudioElement>(null)
     const chunksRef = useRef<Blob[]>([])
     const recorderRef = useRef<MediaRecorder | null>(null)
     const [recording, setRecording] = useState<boolean>(false)
@@ -28,7 +26,10 @@ const Recorder : React.FunctionComponent = () => {
     
 
     useEffect(() => {
-        myIpcRenderer.on('APP_saveSuccess', (result) => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
+        myIpcRenderer.on('APP_saveSuccess', (result: any) => {
             let dir = localStorage.getItem('dir')
             if (dir) myIpcRenderer.send('APP_listFiles', dir)
         })
@@ -37,7 +38,9 @@ const Recorder : React.FunctionComponent = () => {
 
 
     const prepareRecording = async () => {
-        
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         let stream : MediaStream | null = await (navigator.mediaDevices as any).getUserMedia(constraints)
         stream!.getVideoTracks()[0].stop()
         let audioStream : MediaStream = new MediaStream(stream!.getAudioTracks())
@@ -59,6 +62,9 @@ const Recorder : React.FunctionComponent = () => {
     }
 
     const prepareShadow = async () => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         let stream: MediaStream | null = await (navigator.mediaDevices as any).getUserMedia(constraints)
         stream!.getVideoTracks()[0].stop()
         let audioStream: MediaStream = new MediaStream(stream!.getAudioTracks())

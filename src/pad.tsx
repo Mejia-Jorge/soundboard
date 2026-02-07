@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react'
-const { myIpcRenderer } = window
 
+const getIpc = () => (window as any).myIpcRenderer;
 
 interface PadProps {
     outputs: string[];
@@ -29,6 +29,8 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     // Web Audio nodes
     const primaryGainRef = useRef<GainNode | null>(null)
     const secondaryGainRef = useRef<GainNode | null>(null)
+    const pSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+    const sSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
 
     const [shortcutText, setShortcutText] = useState<string>()
     const [shortcut, setShortcut] = useState<string>('')
@@ -86,6 +88,8 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
     const handleKeyDown = (event : React.KeyboardEvent<HTMLButtonElement>) => {
         event.preventDefault()
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
 
         if (buttonFocus && event.key === 'Escape') {
             setShortcut('')
@@ -123,6 +127,9 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     }
     
     const loadHotkey = () => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         let key
         if (props.name) key = localStorage.getItem(props.name)
         if (key) {
@@ -137,8 +144,15 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (props.audioContext && primarySourceRef.current && secondarySourceRef.current && primarySinkRef.current && secondarySinkRef.current) {
             const ctx = props.audioContext;
 
-            const pSource = ctx.createMediaElementSource(primarySourceRef.current);
-            const sSource = ctx.createMediaElementSource(secondarySourceRef.current);
+            if (!pSourceNodeRef.current) {
+                pSourceNodeRef.current = ctx.createMediaElementSource(primarySourceRef.current);
+            }
+            if (!sSourceNodeRef.current) {
+                sSourceNodeRef.current = ctx.createMediaElementSource(secondarySourceRef.current);
+            }
+
+            const pSource = pSourceNodeRef.current;
+            const sSource = sSourceNodeRef.current;
 
             const pGain = ctx.createGain();
             const sGain = ctx.createGain();
@@ -169,15 +183,20 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             let savedVol = localStorage.getItem(`vol_${props.name}`)
             if (savedVol) setLocalVolume(parseFloat(savedVol))
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.name]) 
     
     useEffect(() =>{
         setPrimaryOutput(props.outputs[0])
         setSecondaryOutput(props.outputs[1])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.outputs, props.name])
     
     
     useEffect(() => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
         if (removeListenerRef.current) removeListenerRef.current() // Remove old listener
 
         removeListenerRef.current = myIpcRenderer.on('APP_keypressed', (args : string) => {
@@ -187,6 +206,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         })
 
         props.name && shortcut && localStorage.setItem(props.name, shortcut)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shortcut])
     
     useEffect(() => {
@@ -216,6 +236,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (props.name && props.registerPlayFunction) {
             props.registerPlayFunction(props.name, play);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.name, props.source, props.registerPlayFunction]);
 
 

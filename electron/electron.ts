@@ -1,20 +1,13 @@
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 import mime from 'mime'
 import express from 'express'
 import cors from 'cors'
 import { IpcMainEvent } from 'electron/main'
-import updaterPkg from "electron-updater"
-import logPkg from 'electron-log'
-
-const { autoUpdater } = updaterPkg;
-const log = logPkg.default || logPkg; // Handle different packaging
+import { autoUpdater } from "electron-updater"
+import log from 'electron-log'
 
 const fspromise = fs.promises
 
@@ -115,11 +108,20 @@ export default class Main {
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                preload: path.join(__dirname, 'preload.js')
+                preload: path.join(__dirname, 'preload.cjs')
             }
         });
         Main.mainWindow.loadURL(isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../build/index.html')}`);
+        if (isDev) Main.mainWindow.webContents.openDevTools();
         Main.mainWindow.on('closed', Main.onClose);
+
+        Main.mainWindow.webContents.on('did-fail-load' as any, (event: any, errorCode: any, errorDescription: any) => {
+            console.error('Failed to load:', errorCode, errorDescription);
+        });
+
+        Main.mainWindow.webContents.on('render-process-gone' as any, (event: any, details: any) => {
+            console.error('Render process gone:', details);
+        });
 
         Main.mainWindow.on("minimize" as any, (e: any) => {
             e.preventDefault();
