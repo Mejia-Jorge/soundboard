@@ -38,7 +38,10 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const [buttonFocus, setButtonFocus] = useState<boolean>(false)
     const [isPlaying, setIsPlaying] = useState<boolean>(false)
     const [localVolume, setLocalVolume] = useState<number>(1.0)
+    const [fadeIn, setFadeIn] = useState<boolean>(false)
+    const [fadeOut, setFadeOut] = useState<boolean>(false)
     const removeListenerRef = useRef<Function | null>(null)
+    const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     
     const setPrimaryOutput = (output : string) => {
@@ -49,30 +52,90 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         secondarySinkRef.current?.setSinkId(output)
     }
 
+    const FADE_DURATION = 0.5;
+
+    const getTargetGain = (linearVolume: number) => {
+        return linearVolume > 0 ? Math.exp((Math.log(linearVolume) / Math.log(10)) * 4) : 0;
+    }
+
     const play = () => {
         // Start AudioContext on user interaction
         if (props.audioContext.state === 'suspended') {
             props.audioContext.resume();
         }
 
+        const ctx = props.audioContext;
+        const now = ctx.currentTime;
+
         if (primarySourceRef.current) {
             // Check if the audio is currently playing
             if (!primarySourceRef.current.paused && primarySourceRef.current.currentTime > 0) {
-                primarySourceRef.current.pause();
-                primarySourceRef.current.currentTime = 0;
-                if (secondarySourceRef.current) {
-                    secondarySourceRef.current.pause();
-                    secondarySourceRef.current.currentTime = 0;
+                if (fadeOut) {
+                    // Start fade out
+                    primaryGainRef.current?.gain.setValueAtTime(primaryGainRef.current.gain.value, now);
+                    primaryGainRef.current?.gain.linearRampToValueAtTime(0, now + FADE_DURATION);
+                    secondaryGainRef.current?.gain.setValueAtTime(secondaryGainRef.current.gain.value, now);
+                    secondaryGainRef.current?.gain.linearRampToValueAtTime(0, now + FADE_DURATION);
+
+                    if (fadeOutTimeoutRef.current) clearTimeout(fadeOutTimeoutRef.current);
+                    fadeOutTimeoutRef.current = setTimeout(() => {
+                        primarySourceRef.current?.pause();
+                        if (primarySourceRef.current) primarySourceRef.current.currentTime = 0;
+                        secondarySourceRef.current?.pause();
+                        if (secondarySourceRef.current) secondarySourceRef.current.currentTime = 0;
+
+                        // Reset gain for next play
+                        const combinedPrimary = props.volume * localVolume;
+                        const combinedSecondary = props.virtualVolume * localVolume;
+                        primaryGainRef.current?.gain.setValueAtTime(getTargetGain(combinedPrimary), ctx.currentTime);
+                        secondaryGainRef.current?.gain.setValueAtTime(getTargetGain(combinedSecondary), ctx.currentTime);
+                        fadeOutTimeoutRef.current = null;
+                    }, FADE_DURATION * 1000);
+                } else {
+                    primarySourceRef.current.pause();
+                    primarySourceRef.current.currentTime = 0;
+                    if (secondarySourceRef.current) {
+                        secondarySourceRef.current.pause();
+                        secondarySourceRef.current.currentTime = 0;
+                    }
                 }
             } else {
                 // If not playing, reset and play
+                if (fadeOutTimeoutRef.current) {
+                    clearTimeout(fadeOutTimeoutRef.current);
+                    fadeOutTimeoutRef.current = null;
+                }
+
                 primarySourceRef.current.currentTime = 0;
                 if (secondarySourceRef.current) {
                     secondarySourceRef.current.currentTime = 0;
                 }
-                primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
-                if (secondarySourceRef.current) {
-                    secondarySourceRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+
+                if (fadeIn) {
+                    primaryGainRef.current?.gain.setValueAtTime(0, now);
+                    secondaryGainRef.current?.gain.setValueAtTime(0, now);
+
+                    primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
+                    if (secondarySourceRef.current) {
+                        secondarySourceRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+                    }
+
+                    const targetPrimary = getTargetGain(props.volume * localVolume);
+                    const targetSecondary = getTargetGain(props.virtualVolume * localVolume);
+
+                    primaryGainRef.current?.gain.linearRampToValueAtTime(targetPrimary, now + FADE_DURATION);
+                    secondaryGainRef.current?.gain.linearRampToValueAtTime(targetSecondary, now + FADE_DURATION);
+                } else {
+                    // Ensure gain is correct before playing
+                    const targetPrimary = getTargetGain(props.volume * localVolume);
+                    const targetSecondary = getTargetGain(props.virtualVolume * localVolume);
+                    primaryGainRef.current?.gain.setValueAtTime(targetPrimary, now);
+                    secondaryGainRef.current?.gain.setValueAtTime(targetSecondary, now);
+
+                    primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
+                    if (secondarySourceRef.current) {
+                        secondarySourceRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
+                    }
                 }
 
                 // Ensure sink elements are also "playing" (they play the stream)
@@ -183,6 +246,12 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (props.name) {
             let savedVol = localStorage.getItem(`vol_${props.name}`)
             if (savedVol) setLocalVolume(parseFloat(savedVol))
+
+            let savedFI = localStorage.getItem(`fi_${props.name}`)
+            if (savedFI) setFadeIn(savedFI === 'true')
+
+            let savedFO = localStorage.getItem(`fo_${props.name}`)
+            if (savedFO) setFadeOut(savedFO === 'true')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.name]) 
@@ -215,23 +284,25 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         // For standard volume property, we still apply the scaling
         // For GainNode, we apply it directly.
 
+        // If we are currently fading out, don't let the volume slider override it
+        if (fadeOutTimeoutRef.current) return;
+
         // Final combined volume (linear scale)
         const combinedPrimary = props.volume * localVolume;
         const combinedSecondary = props.virtualVolume * localVolume;
 
         // Use the same exponential scaling for the gain value
-        // Math.exp((Math.log(x) / Math.log(10)) * 4) = x^1.74 approx
-        const pGainValue = combinedPrimary > 0 ? Math.exp((Math.log(combinedPrimary) / Math.log(10)) * 4) : 0;
-        const sGainValue = combinedSecondary > 0 ? Math.exp((Math.log(combinedSecondary) / Math.log(10)) * 4) : 0;
+        const pGainValue = getTargetGain(combinedPrimary);
+        const sGainValue = getTargetGain(combinedSecondary);
 
         if (primaryGainRef.current) {
-            primaryGainRef.current.gain.value = pGainValue;
+            primaryGainRef.current.gain.setTargetAtTime(pGainValue, props.audioContext.currentTime, 0.03);
         }
         if (secondaryGainRef.current) {
-            secondaryGainRef.current.gain.value = sGainValue;
+            secondaryGainRef.current.gain.setTargetAtTime(sGainValue, props.audioContext.currentTime, 0.03);
         }
         
-    }, [props.volume, props.virtualVolume, localVolume])
+    }, [props.volume, props.virtualVolume, localVolume, props.audioContext])
 
     useEffect(() => {
         if (props.name && props.registerPlayFunction) {
@@ -240,12 +311,30 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.name, props.source, props.registerPlayFunction]);
 
+    useEffect(() => {
+        return () => {
+            if (fadeOutTimeoutRef.current) clearTimeout(fadeOutTimeoutRef.current);
+        }
+    }, []);
+
 
 
     const handleVolumeChange = (e: React.FormEvent<HTMLInputElement>) => {
         let val = parseFloat(e.currentTarget.value) / 100
         setLocalVolume(val)
         if (props.name) localStorage.setItem(`vol_${props.name}`, val.toString())
+    }
+
+    const toggleFadeIn = () => {
+        const newVal = !fadeIn;
+        setFadeIn(newVal);
+        if (props.name) localStorage.setItem(`fi_${props.name}`, newVal.toString());
+    }
+
+    const toggleFadeOut = () => {
+        const newVal = !fadeOut;
+        setFadeOut(newVal);
+        if (props.name) localStorage.setItem(`fo_${props.name}`, newVal.toString());
     }
 
     const handleButtonHover = (state: string) => {
@@ -291,15 +380,29 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             {props.name && props.name.slice(0, props.name.indexOf('.'))} <br/>
             <span className="shortcut-display">{shortcutText}</span>
         </button>
-        <input
-            type="range"
-            min="0"
-            max="200"
-            value={localVolume * 100}
-            onInput={handleVolumeChange}
-            className="pad-volume"
-            title={`Individual Volume: ${Math.round(localVolume * 100)}%`}
-        />
+        <div className="pad-volume-row">
+            <button
+                className={`fade-toggle ${fadeIn ? 'active' : ''}`}
+                onClick={toggleFadeIn}
+                title="Fade In">
+                FI
+            </button>
+            <input
+                type="range"
+                min="0"
+                max="200"
+                value={localVolume * 100}
+                onInput={handleVolumeChange}
+                className="pad-volume"
+                title={`Individual Volume: ${Math.round(localVolume * 100)}%`}
+            />
+            <button
+                className={`fade-toggle ${fadeOut ? 'active' : ''}`}
+                onClick={toggleFadeOut}
+                title="Fade Out">
+                FO
+            </button>
+        </div>
     </div>
     )
 }
