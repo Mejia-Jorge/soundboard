@@ -201,7 +201,7 @@ const Controller : React.FunctionComponent = () => {
 
                 <div id="config">
                     <button onClick={handlePathSelection}>Select Audio Folder</button>
-                    <a href="http://localhost:3001/remote.html" target="_blank" rel="noreferrer" className="web-ui-link">Open Web UI</a>
+
                     <div id="outputs">
                         <select onChange={ handlePrimaryOutputChange } ref={primaryRef}>
                             {outputs && outputs.map((output, index) => 
