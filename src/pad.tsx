@@ -31,6 +31,8 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const secondaryGainRef = useRef<GainNode | null>(null)
     const pSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
     const sSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+    const pDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
+    const sDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
 
     const [shortcutText, setShortcutText] = useState<string>()
     const [shortcut, setShortcut] = useState<string>('')
@@ -40,8 +42,10 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const [localVolume, setLocalVolume] = useState<number>(1.0)
     const [fadeIn, setFadeIn] = useState<boolean>(false)
     const [fadeOut, setFadeOut] = useState<boolean>(false)
+    const [isGraphInitialized, setIsGraphInitialized] = useState<boolean>(false)
     const removeListenerRef = useRef<Function | null>(null)
     const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const fadeInTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     // Refs to avoid stale closures in the registered play function
     const fadeInRef = useRef(fadeIn)
@@ -74,9 +78,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     }
 
     const play = () => {
+        console.log(`Playing ${props.name}: fadeIn=${fadeInRef.current}, fadeOut=${fadeOutRef.current}`);
+
         // Start AudioContext on user interaction
         if (props.audioContext.state === 'suspended') {
-            props.audioContext.resume();
+            props.audioContext.resume().then(() => {
+                console.log("AudioContext resumed");
+            });
         }
 
         const ctx = props.audioContext;
@@ -130,11 +138,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 }
 
                 if (fadeInRef.current) {
+                    console.log("Starting fade in");
                     primaryGainRef.current?.gain.cancelScheduledValues(now);
                     primaryGainRef.current?.gain.setValueAtTime(0, now);
+                    primaryGainRef.current?.gain.setValueAtTime(0, now + 0.01); // Ensure it's 0
 
                     secondaryGainRef.current?.gain.cancelScheduledValues(now);
                     secondaryGainRef.current?.gain.setValueAtTime(0, now);
+                    secondaryGainRef.current?.gain.setValueAtTime(0, now + 0.01);
 
                     primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
                     if (secondarySourceRef.current) {
@@ -146,11 +157,19 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
 
                     primaryGainRef.current?.gain.linearRampToValueAtTime(targetPrimary, now + FADE_DURATION);
                     secondaryGainRef.current?.gain.linearRampToValueAtTime(targetSecondary, now + FADE_DURATION);
+
+                    if (fadeInTimeoutRef.current) clearTimeout(fadeInTimeoutRef.current);
+                    fadeInTimeoutRef.current = setTimeout(() => {
+                        fadeInTimeoutRef.current = null;
+                    }, FADE_DURATION * 1000);
                 } else {
+                    console.log("Starting without fade in");
                     // Ensure gain is correct before playing
                     const targetPrimary = getTargetGain(volumeRef.current * localVolumeRef.current);
                     const targetSecondary = getTargetGain(virtualVolumeRef.current * localVolumeRef.current);
+                    primaryGainRef.current?.gain.cancelScheduledValues(now);
                     primaryGainRef.current?.gain.setValueAtTime(targetPrimary, now);
+                    secondaryGainRef.current?.gain.cancelScheduledValues(now);
                     secondaryGainRef.current?.gain.setValueAtTime(targetSecondary, now);
 
                     primarySourceRef.current.play().catch(error => console.error("Error playing primary audio:", error));
@@ -160,8 +179,15 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 }
 
                 // Ensure sink elements are also "playing" (they play the stream)
-                primarySinkRef.current?.play().catch(() => {});
-                secondarySinkRef.current?.play().catch(() => {});
+                // Re-assigning srcObject can sometimes help if the stream was stalled
+                if (primarySinkRef.current && pDestRef.current) {
+                    primarySinkRef.current.srcObject = pDestRef.current.stream;
+                    primarySinkRef.current.play().catch(() => {});
+                }
+                if (secondarySinkRef.current && sDestRef.current) {
+                    secondarySinkRef.current.srcObject = sDestRef.current.stream;
+                    secondarySinkRef.current.play().catch(() => {});
+                }
             }
         }
     }
@@ -229,6 +255,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (props.audioContext && primarySourceRef.current && secondarySourceRef.current && primarySinkRef.current && secondarySinkRef.current) {
             const ctx = props.audioContext;
 
+            // Create source nodes if first time
             if (!pSourceNodeRef.current) {
                 pSourceNodeRef.current = ctx.createMediaElementSource(primarySourceRef.current);
             }
@@ -239,6 +266,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             const pSource = pSourceNodeRef.current;
             const sSource = sSourceNodeRef.current;
 
+            // Clean up existing gain nodes if any
+            if (primaryGainRef.current) {
+                try { primaryGainRef.current.disconnect(); } catch(e) {}
+            }
+            if (secondaryGainRef.current) {
+                try { secondaryGainRef.current.disconnect(); } catch(e) {}
+            }
+
             const pGain = ctx.createGain();
             const sGain = ctx.createGain();
 
@@ -248,16 +283,35 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             const pDest = ctx.createMediaStreamDestination();
             const sDest = ctx.createMediaStreamDestination();
 
+            pDestRef.current = pDest;
+            sDestRef.current = sDest;
+
+            try { pSource.disconnect(); } catch(e) {}
             pSource.connect(pGain);
             pGain.connect(pDest);
 
+            try { sSource.disconnect(); } catch(e) {}
             sSource.connect(sGain);
             sGain.connect(sDest);
 
+            // Important: also connect a silent gain to the main destination to keep the context active
+            const silentGain = ctx.createGain();
+            silentGain.gain.value = 0;
+            pGain.connect(silentGain);
+            silentGain.connect(ctx.destination);
+
             primarySinkRef.current.srcObject = pDest.stream;
             secondarySinkRef.current.srcObject = sDest.stream;
+
+            // Ensure source elements don't output directly to speakers
+            // We use a very low volume instead of muted/0 because it's more compatible
+            primarySourceRef.current.volume = 0.0001;
+            secondarySourceRef.current.volume = 0.0001;
+
+            setIsGraphInitialized(true);
         }
-    }, [props.audioContext])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.audioContext, props.source])
 
     useEffect(() => {
         setShortcut('')
@@ -305,8 +359,11 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         // For standard volume property, we still apply the scaling
         // For GainNode, we apply it directly.
 
-        // If we are currently fading out, don't let the volume slider override it
-        if (fadeOutTimeoutRef.current) return;
+        // If graph is not initialized, wait
+        if (!isGraphInitialized) return;
+
+        // If we are currently fading out or in, don't let the volume slider override it
+        if (fadeOutTimeoutRef.current || fadeInTimeoutRef.current) return;
 
         // Final combined volume (linear scale)
         const combinedPrimary = props.volume * localVolume;
@@ -323,7 +380,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
             secondaryGainRef.current.gain.setTargetAtTime(sGainValue, props.audioContext.currentTime, 0.03);
         }
         
-    }, [props.volume, props.virtualVolume, localVolume, props.audioContext])
+    }, [props.volume, props.virtualVolume, localVolume, props.audioContext, isGraphInitialized])
 
     useEffect(() => {
         if (props.name && props.registerPlayFunction) {
@@ -335,6 +392,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     useEffect(() => {
         return () => {
             if (fadeOutTimeoutRef.current) clearTimeout(fadeOutTimeoutRef.current);
+            if (fadeInTimeoutRef.current) clearTimeout(fadeInTimeoutRef.current);
         }
     }, []);
 
@@ -375,7 +433,6 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         {/* Source elements */}
         <audio ref={primarySourceRef}
                src={ props.source }
-               muted
                preload="auto"
                crossOrigin="anonymous"
                onPlay={() => setIsPlaying(true)}
@@ -383,7 +440,6 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                onEnded={() => setIsPlaying(false)} />
         <audio ref={secondarySourceRef}
                src={ props.source }
-               muted
                preload="auto"
                crossOrigin="anonymous"
                onPlay={() => setIsPlaying(true)}

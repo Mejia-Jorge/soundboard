@@ -237,7 +237,7 @@ const Controller : React.FunctionComponent = () => {
 
             <div id="pads">
                 {paths && paths.map((path, index) => 
-                    <Pad    key={index} 
+                    <Pad    key={path}
                             outputs={ [selectedPrimaryOutput, selectedSecondaryOutput] } 
                             source={path} 
                             name={padNames && padNames[index]}
