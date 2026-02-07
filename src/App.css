@@ -113,6 +113,10 @@ button:active {
     background-color:#af7360 ;
 }
 
+.pad.playing {
+    background-color: #a3be8c;
+}
+
 
 #controller {
     display: block;

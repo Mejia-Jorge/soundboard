@@ -36,6 +36,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const [shortcut, setShortcut] = useState<string>('')
 
     const [buttonFocus, setButtonFocus] = useState<boolean>(false)
+    const [isPlaying, setIsPlaying] = useState<boolean>(false)
     const [localVolume, setLocalVolume] = useState<number>(1.0)
     const removeListenerRef = useRef<Function | null>(null)
 
@@ -262,7 +263,13 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     return (
     <div className="pad-container">
         {/* Source elements */}
-        <audio ref={primarySourceRef} src={ props.source } preload="auto" crossOrigin="anonymous" />
+        <audio ref={primarySourceRef}
+               src={ props.source }
+               preload="auto"
+               crossOrigin="anonymous"
+               onPlay={() => setIsPlaying(true)}
+               onPause={() => setIsPlaying(false)}
+               onEnded={() => setIsPlaying(false)} />
         <audio ref={secondarySourceRef} src={ props.source } preload="auto" crossOrigin="anonymous" />
 
         {/* Sink elements */}
@@ -270,7 +277,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         <audio ref={secondarySinkRef} preload="auto" />
 
         <button onClick={play} 
-                className="pad"
+                className={`pad ${isPlaying ? 'playing' : ''}`}
                 onContextMenu={handleContext}
                 onMouseOut={() => handleButtonHover('out')}
                 onMouseEnter={() => handleButtonHover('in')}
