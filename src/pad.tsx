@@ -43,6 +43,21 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
     const removeListenerRef = useRef<Function | null>(null)
     const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+    // Refs to avoid stale closures in the registered play function
+    const fadeInRef = useRef(fadeIn)
+    const fadeOutRef = useRef(fadeOut)
+    const localVolumeRef = useRef(localVolume)
+    const volumeRef = useRef(props.volume)
+    const virtualVolumeRef = useRef(props.virtualVolume)
+
+    useEffect(() => {
+        fadeInRef.current = fadeIn
+        fadeOutRef.current = fadeOut
+        localVolumeRef.current = localVolume
+        volumeRef.current = props.volume
+        virtualVolumeRef.current = props.virtualVolume
+    }, [fadeIn, fadeOut, localVolume, props.volume, props.virtualVolume])
+
     
     const setPrimaryOutput = (output : string) => {
         primarySinkRef.current?.setSinkId(output)
@@ -70,7 +85,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         if (primarySourceRef.current) {
             // Check if the audio is currently playing
             if (!primarySourceRef.current.paused && primarySourceRef.current.currentTime > 0) {
-                if (fadeOut) {
+                if (fadeOutRef.current) {
                     // Start fade out
                     primaryGainRef.current?.gain.setValueAtTime(primaryGainRef.current.gain.value, now);
                     primaryGainRef.current?.gain.linearRampToValueAtTime(0, now + FADE_DURATION);
@@ -85,8 +100,8 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                         if (secondarySourceRef.current) secondarySourceRef.current.currentTime = 0;
 
                         // Reset gain for next play
-                        const combinedPrimary = props.volume * localVolume;
-                        const combinedSecondary = props.virtualVolume * localVolume;
+                        const combinedPrimary = volumeRef.current * localVolumeRef.current;
+                        const combinedSecondary = virtualVolumeRef.current * localVolumeRef.current;
                         primaryGainRef.current?.gain.setValueAtTime(getTargetGain(combinedPrimary), ctx.currentTime);
                         secondaryGainRef.current?.gain.setValueAtTime(getTargetGain(combinedSecondary), ctx.currentTime);
                         fadeOutTimeoutRef.current = null;
@@ -111,7 +126,7 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                     secondarySourceRef.current.currentTime = 0;
                 }
 
-                if (fadeIn) {
+                if (fadeInRef.current) {
                     primaryGainRef.current?.gain.setValueAtTime(0, now);
                     secondaryGainRef.current?.gain.setValueAtTime(0, now);
 
@@ -120,15 +135,15 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                         secondarySourceRef.current.play().catch(error => console.error("Error playing secondary audio:", error));
                     }
 
-                    const targetPrimary = getTargetGain(props.volume * localVolume);
-                    const targetSecondary = getTargetGain(props.virtualVolume * localVolume);
+                    const targetPrimary = getTargetGain(volumeRef.current * localVolumeRef.current);
+                    const targetSecondary = getTargetGain(virtualVolumeRef.current * localVolumeRef.current);
 
                     primaryGainRef.current?.gain.linearRampToValueAtTime(targetPrimary, now + FADE_DURATION);
                     secondaryGainRef.current?.gain.linearRampToValueAtTime(targetSecondary, now + FADE_DURATION);
                 } else {
                     // Ensure gain is correct before playing
-                    const targetPrimary = getTargetGain(props.volume * localVolume);
-                    const targetSecondary = getTargetGain(props.virtualVolume * localVolume);
+                    const targetPrimary = getTargetGain(volumeRef.current * localVolumeRef.current);
+                    const targetSecondary = getTargetGain(virtualVolumeRef.current * localVolumeRef.current);
                     primaryGainRef.current?.gain.setValueAtTime(targetPrimary, now);
                     secondaryGainRef.current?.gain.setValueAtTime(targetSecondary, now);
 
