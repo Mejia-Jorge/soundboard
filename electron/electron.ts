@@ -173,6 +173,19 @@ export default class Main {
     }
 
     private static initExpressServer() {
+        // Cleanup old instant search sounds
+        try {
+            const tempDir = path.join(app.getPath('temp'), 'soundboard-instant');
+            if (fs.existsSync(tempDir)) {
+                const files = fs.readdirSync(tempDir);
+                for (const file of files) {
+                    fs.unlinkSync(path.join(tempDir, file));
+                }
+            }
+        } catch (e) {
+            console.error("Error cleaning up temp directory:", e);
+        }
+
         const expressApp = express();
         const port = 3001;
 
@@ -269,7 +282,7 @@ export default class Main {
 
             // If term is same, return current path
             if (term === Main.instantSearchTerm && Main.instantSoundPath && fs.existsSync(Main.instantSoundPath)) {
-                return { path: Main.instantSoundPath };
+                return { path: pathToFileURL(Main.instantSoundPath).href };
             }
 
             try {

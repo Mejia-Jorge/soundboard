@@ -242,6 +242,9 @@ const Controller : React.FunctionComponent = () => {
                     volume={volume}
                     virtualVolume={virtualVolume}
                     audioContext={getAudioContext()}
+                    registerPlayFunction={(name, playFn) => {
+                        soundPlaybackMapRef.current.set(name, playFn);
+                    }}
                 />
                 {paths && paths.map((path, index) => 
                     <Pad    key={path}

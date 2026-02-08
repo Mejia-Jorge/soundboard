@@ -7,6 +7,7 @@ interface InstantPadProps {
     volume: number;
     virtualVolume: number;
     audioContext: AudioContext;
+    registerPlayFunction?: (name: string, playFn: () => void) => void;
 }
 
 // Extended interface for sinkId support
@@ -19,6 +20,12 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isSearching, setIsSearching] = useState<boolean>(false);
     const [statusMessage, setStatusMessage] = useState<string>('MyInstants Search');
+
+    const [shortcutText, setShortcutText] = useState<string>()
+    const [shortcut, setShortcut] = useState<string>('')
+    const [buttonFocus, setButtonFocus] = useState<boolean>(false)
+
+    const NAME = "Instant Search Pad";
 
     // Hidden sources
     const primarySourceRef = useRef<ExtendedAudioElement>(null)
@@ -41,7 +48,7 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
     const [fadeIn, setFadeIn] = useState<boolean>(false)
     const [fadeOut, setFadeOut] = useState<boolean>(false)
     const [isGraphInitialized, setIsGraphInitialized] = useState<boolean>(false)
-
+    const removeListenerRef = useRef<Function | null>(null)
     const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const fadeInTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -206,8 +213,6 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
                 setSource('');
             } else {
                 setStatusMessage('Found!');
-                // We add a timestamp to the path to force the audio element to reload
-                // if the same filename is used (though our backend uses unique filenames now)
                 setSource(result.path);
             }
         }
@@ -216,7 +221,6 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
 
     useEffect(() => {
         if (source) {
-            // Give a small delay for the audio element to load the new src
             const timer = setTimeout(() => {
                 play();
             }, 100);
@@ -224,6 +228,65 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [source]);
+
+    // Hotkey logic
+    const handleContext = (event : React.MouseEvent) => {
+        event.preventDefault();
+        setButtonFocus(true)
+        setShortcutText('Recording...')
+    }
+
+    const handleKeyDown = (event : React.KeyboardEvent) => {
+        if (!buttonFocus) return;
+
+        event.preventDefault()
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
+        if (event.key === 'Escape') {
+            setShortcut('')
+            setShortcutText('')
+            localStorage.removeItem(NAME)
+            myIpcRenderer.send('APP_setkey', '', NAME)
+            setButtonFocus(false)
+            return
+        }
+
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) {
+            return;
+        }
+
+        let parts = [];
+        if (event.ctrlKey) parts.push('Control');
+        if (event.shiftKey) parts.push('Shift');
+        if (event.altKey) parts.push('Alt');
+        if (event.metaKey) parts.push('Meta');
+
+        let key = event.key;
+        if (key === ' ') key = 'Space';
+        if (key.length === 1) key = key.toUpperCase();
+
+        parts.push(key);
+
+        let shortcutString = parts.join('+');
+
+        myIpcRenderer.send('APP_setkey', shortcutString, NAME)
+        setShortcutText(shortcutString)
+        setShortcut(shortcutString)
+        setButtonFocus(false)
+    }
+
+    const loadHotkey = () => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
+        let key = localStorage.getItem(NAME)
+        if (key) {
+            setShortcut(key)
+            setShortcutText(key)
+            myIpcRenderer.send('APP_setkey', key, NAME)
+        }
+    }
 
     // Initialize Web Audio Graph
     useEffect(() => {
@@ -278,6 +341,37 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.audioContext, source])
 
+    useEffect(() => {
+        loadHotkey();
+        return () => {
+            if (removeListenerRef.current) removeListenerRef.current()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    useEffect(() => {
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
+        if (removeListenerRef.current) removeListenerRef.current()
+
+        removeListenerRef.current = myIpcRenderer.on('APP_keypressed', (args : string) => {
+            if(shortcut === args) {
+                play()
+            }
+        })
+
+        shortcut && localStorage.setItem(NAME, shortcut)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shortcut, source]) // Re-bind when shortcut or source changes
+
+    useEffect(() => {
+        if (props.registerPlayFunction) {
+            props.registerPlayFunction("Instant Search", play);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [source, props.registerPlayFunction]);
+
     useEffect(() =>{
         setPrimaryOutput(props.outputs[0])
         setSecondaryOutput(props.outputs[1])
@@ -311,8 +405,19 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
     const toggleFadeIn = () => setFadeIn(!fadeIn);
     const toggleFadeOut = () => setFadeOut(!fadeOut);
 
+    const handleButtonHover = (state: string) => {
+        if (state === 'in') {
+            if (!buttonFocus) setShortcutText('Rightclick to enter hotkey / Esc to clear')
+        }
+
+        if (state === 'out') {
+            setShortcutText(shortcut)
+            if (!buttonFocus) setButtonFocus(false)
+        }
+    }
+
     return (
-    <div className="pad-container instant-pad">
+    <div className="pad-container">
         {/* Source elements */}
         <audio ref={primarySourceRef}
                src={ source }
@@ -333,18 +438,39 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
         <audio ref={primarySinkRef} preload="auto" />
         <audio ref={secondarySinkRef} preload="auto" />
 
-        <div className={`pad ${isPlaying ? 'playing' : ''}`} style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
-            <form onSubmit={handleSearch} style={{display:'flex', flexDirection:'column', width: '100%', padding: '5px', boxSizing: 'border-box'}}>
+        <div className={`pad ${isPlaying ? 'playing' : ''}`}
+                onClick={(e) => {
+                    // Only play if not clicking on the input
+                    if ((e.target as HTMLElement).tagName !== 'INPUT') {
+                        play();
+                    }
+                }}
+                onContextMenu={handleContext}
+                onMouseOut={() => handleButtonHover('out')}
+                onMouseEnter={() => handleButtonHover('in')}
+                tabIndex={0}
+                onKeyDown={handleKeyDown}
+                style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor: 'default', outline: 'none'}}>
+
+            <form onSubmit={handleSearch} style={{display:'flex', flexDirection:'column', width: '100%', padding: '0 5px', boxSizing: 'border-box'}}>
                 <input
                     type="text"
-                    placeholder="Search MyInstants..."
+                    placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                        // Prevent hotkey logic from triggering when typing in input
+                        if (buttonFocus) {
+                             // If recording, we might want to prevent typing?
+                             // But normally you'd focus the pad, not the input to record.
+                        }
+                        e.stopPropagation();
+                    }}
                     className="instant-search-input"
                 />
                 <span className="status-display" title={statusMessage}>{statusMessage}</span>
-                {source && <button type="button" onClick={play} className="instant-play-btn">Play</button>}
             </form>
+            <span className="shortcut-display">{shortcutText}</span>
         </div>
         <div className="pad-volume-row">
             <button
