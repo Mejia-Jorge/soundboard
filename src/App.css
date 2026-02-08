@@ -452,7 +452,8 @@ option {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     margin-bottom: 2px;
 }
 
@@ -462,6 +463,7 @@ option {
     text-decoration: underline;
     cursor: pointer;
     transition: color 0.2s;
+    white-space: nowrap;
 }
 
 .save-link:hover {
