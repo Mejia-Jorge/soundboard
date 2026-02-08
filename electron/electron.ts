@@ -1,4 +1,5 @@
 import path from 'path'
+import { pathToFileURL } from 'url'
 import { app, BrowserWindow, ipcMain, dialog, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
 import os from 'os'
@@ -29,6 +30,8 @@ export default class Main {
     static soundboardEnabled: boolean = true;
     static bindings: Bind[] = [];
     static toggleHotkey: string = '';
+    static instantSoundPath: string = '';
+    static instantSearchTerm: string = '';
 
     private static registerAllShortcuts() {
         for (let bind of Main.bindings) {
@@ -257,6 +260,61 @@ export default class Main {
             const port = 3001;
             const ip = Main.getLocalIP();
             return `http://${ip}:${port}/remote.html`;
+        });
+    }
+
+    private static listenerInstantSearch() {
+        ipcMain.handle('APP_searchInstant', async (event, term: string) => {
+            if (!term) return { error: 'No search term provided' };
+
+            // If term is same, return current path
+            if (term === Main.instantSearchTerm && Main.instantSoundPath && fs.existsSync(Main.instantSoundPath)) {
+                return { path: Main.instantSoundPath };
+            }
+
+            try {
+                const searchUrl = `https://www.myinstants.com/en/search/?name=${encodeURIComponent(term)}`;
+                const response = await fetch(searchUrl);
+                const html = await response.text();
+
+                // Regex to find the first sound URL
+                // Look for play('/media/sounds/filename.mp3'
+                const match = html.match(/play\('(\/media\/sounds\/[^']+)'/);
+
+                if (!match) {
+                    return { error: 'No results found' };
+                }
+
+                const soundUrl = `https://www.myinstants.com${match[1]}`;
+                const tempDir = path.join(app.getPath('temp'), 'soundboard-instant');
+                if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+                // Delete old sound if it exists
+                if (Main.instantSoundPath && fs.existsSync(Main.instantSoundPath)) {
+                    try {
+                        fs.unlinkSync(Main.instantSoundPath);
+                    } catch (e) {
+                        console.error("Error deleting old instant sound:", e);
+                    }
+                }
+
+                const ext = path.extname(soundUrl) || '.mp3';
+                const filename = `instant-${Date.now()}${ext}`;
+                const localPath = path.join(tempDir, filename);
+
+                const soundResponse = await fetch(soundUrl);
+                const buffer = await soundResponse.arrayBuffer();
+                fs.writeFileSync(localPath, Buffer.from(buffer));
+
+                Main.instantSoundPath = localPath;
+                Main.instantSearchTerm = term;
+
+                return { path: pathToFileURL(localPath).href };
+
+            } catch (error) {
+                console.error("Error in instant search:", error);
+                return { error: 'Failed to fetch or download sound' };
+            }
         });
     }
 
@@ -518,6 +576,7 @@ export default class Main {
         this.listenerListFiles()
         this.listenerVersion()
         this.listenerWebUI()
+        this.listenerInstantSearch()
     }
 }
 

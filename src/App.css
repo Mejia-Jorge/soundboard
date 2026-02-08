@@ -431,3 +431,37 @@ option {
 .btn-success:hover {
     background-color: #3b7d58;
 }
+.instant-search-input {
+    width: 100%;
+    padding: 5px;
+    border-radius: 5px;
+    border: none;
+    background: #2e3440;
+    color: white;
+    font-size: 10px;
+    margin-bottom: 5px;
+    box-sizing: border-box;
+}
+
+.status-display {
+    font-size: 9px;
+    color: #8fbcbb;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.instant-play-btn {
+    font-size: 10px !important;
+    padding: 2px 5px !important;
+    height: 24px !important;
+    min-width: 0 !important;
+    background-color: #d08770 !important;
+}
+
+.instant-play-btn:hover {
+    background-color: #e29178 !important;
+}
