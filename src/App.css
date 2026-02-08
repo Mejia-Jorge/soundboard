@@ -455,3 +455,15 @@ option {
     width: 100%;
     margin-bottom: 2px;
 }
+
+.save-link {
+    font-size: 9px;
+    color: #d08770;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.save-link:hover {
+    color: #e29178;
+}

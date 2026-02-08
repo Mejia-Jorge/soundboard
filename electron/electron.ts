@@ -277,6 +277,36 @@ export default class Main {
     }
 
     private static listenerInstantSearch() {
+        ipcMain.handle('APP_saveInstantSound', async (event, targetDir: string) => {
+            if (!Main.instantSoundPath || !fs.existsSync(Main.instantSoundPath)) {
+                return { error: 'No sound in cache to save' };
+            }
+            if (!targetDir || !fs.existsSync(targetDir)) {
+                return { error: 'Invalid target directory' };
+            }
+
+            try {
+                const ext = path.extname(Main.instantSoundPath) || '.mp3';
+                const sanitizedTerm = Main.instantSearchTerm.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                let filename = `${sanitizedTerm}${ext}`;
+                let destPath = path.join(targetDir, filename);
+
+                // Handle duplicate filenames
+                let counter = 1;
+                while (fs.existsSync(destPath)) {
+                    filename = `${sanitizedTerm}-${counter}${ext}`;
+                    destPath = path.join(targetDir, filename);
+                    counter++;
+                }
+
+                fs.copyFileSync(Main.instantSoundPath, destPath);
+                return { success: true, path: destPath };
+            } catch (error) {
+                console.error("Error saving instant sound:", error);
+                return { error: 'Failed to save sound to directory' };
+            }
+        });
+
         ipcMain.handle('APP_searchInstant', async (event, term: string) => {
             if (!term) return { error: 'No search term provided' };
 

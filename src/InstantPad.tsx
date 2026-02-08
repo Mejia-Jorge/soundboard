@@ -219,6 +219,28 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
         setIsSearching(false);
     }
 
+    const handleSave = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer || !source) return;
+
+        const targetDir = localStorage.getItem('dir');
+        if (!targetDir) {
+            setStatusMessage('Select folder first!');
+            return;
+        }
+
+        setStatusMessage('Saving...');
+        const result = await myIpcRenderer.invoke('APP_saveInstantSound', targetDir);
+
+        if (result.success) {
+            setStatusMessage('Saved!');
+            myIpcRenderer.send('APP_listFiles', targetDir);
+        } else {
+            setStatusMessage(result.error || 'Save failed');
+        }
+    }
+
     useEffect(() => {
         if (source) {
             const timer = setTimeout(() => {
@@ -468,9 +490,14 @@ const InstantPad : React.FunctionComponent<InstantPadProps> = (props : InstantPa
                     }}
                     className="instant-search-input"
                 />
-                <span className="status-display" title={statusMessage}>{statusMessage}</span>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'5px'}}>
+                    <span className="status-display" title={statusMessage}>{statusMessage}</span>
+                    {source && !isSearching && (
+                        <span className="save-link" onClick={handleSave}>Save</span>
+                    )}
+                </div>
             </form>
-            <span className="shortcut-display">{shortcutText}</span>
+            <span className="shortcut-display" style={{marginTop:'2px'}}>{shortcutText}</span>
         </div>
         <div className="pad-volume-row">
             <button
