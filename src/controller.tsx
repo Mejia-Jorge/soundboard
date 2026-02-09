@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import Pad from './pad'
+import InstantPad from './InstantPad'
 import Recorder from './Recorder'
 import ToggleSoundboard from './ToggleSoundboard'
 
@@ -236,6 +237,15 @@ const Controller : React.FunctionComponent = () => {
 
 
             <div id="pads">
+                <InstantPad
+                    outputs={ [selectedPrimaryOutput, selectedSecondaryOutput] }
+                    volume={volume}
+                    virtualVolume={virtualVolume}
+                    audioContext={getAudioContext()}
+                    registerPlayFunction={(name, playFn) => {
+                        soundPlaybackMapRef.current.set(name, playFn);
+                    }}
+                />
                 {paths && paths.map((path, index) => 
                     <Pad    key={path}
                             outputs={ [selectedPrimaryOutput, selectedSecondaryOutput] } 
