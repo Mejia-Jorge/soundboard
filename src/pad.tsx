@@ -419,6 +419,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
         }
     }
 
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const myIpcRenderer = getIpc();
+        if (!myIpcRenderer) return;
+
+        await myIpcRenderer.invoke('APP_deleteSound', props.source);
+    }
+
 
     return (
     <div className="pad-container">
@@ -450,6 +458,14 @@ const Pad : React.FunctionComponent<PadProps> = (props : PadProps) => {
                 onKeyDown={handleKeyDown}>
             {props.name && props.name.slice(0, props.name.indexOf('.'))} <br/>
             <span className="shortcut-display">{shortcutText}</span>
+        </button>
+        <button className="delete-btn" onClick={handleDelete} title="Delete Sound">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
         </button>
         <div className="pad-volume-row">
             <button
