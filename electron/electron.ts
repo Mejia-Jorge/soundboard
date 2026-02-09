@@ -32,6 +32,7 @@ export default class Main {
     static toggleHotkey: string = '';
     static instantSoundPath: string = '';
     static instantSearchTerm: string = '';
+    static currentDir: string = '';
 
     private static registerAllShortcuts() {
         for (let bind of Main.bindings) {
@@ -417,6 +418,7 @@ export default class Main {
 
     private static listenerListFiles() {
         ipcMain.on('APP_listFiles', (event, dir) => {
+            Main.currentDir = dir;
             this.listAudioFiles(dir).then(soundObjectsList => {
                 Main.currentSounds = soundObjectsList.map(soundObject => ({
                     name: soundObject.audioName,
@@ -456,6 +458,7 @@ export default class Main {
             .then((result) => {
                 dir = result.filePaths[0];
                 if (dir) {
+                    Main.currentDir = dir;
                     this.listAudioFiles(dir).then(soundObjectsList => {
                         Main.currentSounds = soundObjectsList.map(soundObject => ({
                             name: soundObject.audioName,
@@ -594,6 +597,79 @@ export default class Main {
         } )
     }
 
+    private static listenerDeleteSound() {
+        ipcMain.handle('APP_deleteSound', async (event, audioPath: string) => {
+            const sound = Main.currentSounds.find(s => s.path === audioPath);
+            if (!sound) {
+                return { error: 'Sound not found' };
+            }
+
+            const filesToDelete = [sound.path];
+            if (sound.imagePath) {
+                filesToDelete.push(sound.imagePath);
+            }
+
+            const result = await dialog.showMessageBox(Main.mainWindow, {
+                type: 'warning',
+                buttons: ['Cancel', 'Delete'],
+                defaultId: 0,
+                title: 'Confirm Deletion',
+                message: `Are you sure you want to delete this sound?`,
+                detail: `The following files will be permanently deleted:\n\n${filesToDelete.join('\n')}`,
+                cancelId: 0
+            });
+
+            if (result.response === 1) { // Delete
+                try {
+                    for (const file of filesToDelete) {
+                        if (fs.existsSync(file)) {
+                            await fspromise.unlink(file);
+                        }
+                    }
+
+                    // Remove binding and unregister hotkey
+                    const bindIndex = Main.bindings.findIndex(b => b.name === sound.name);
+                    if (bindIndex !== -1) {
+                        const bind = Main.bindings[bindIndex];
+                        if (Main.soundboardEnabled && bind.key) {
+                            try {
+                                globalShortcut.unregister(bind.key);
+                            } catch (e) {
+                                console.error(`Failed to unregister hotkey ${bind.key}:`, e);
+                            }
+                        }
+                        Main.bindings.splice(bindIndex, 1);
+                    }
+
+                    // Re-list files
+                    if (Main.currentDir) {
+                        const soundObjectsList = await this.listAudioFiles(Main.currentDir);
+                        Main.currentSounds = soundObjectsList.map(soundObject => ({
+                            name: soundObject.audioName,
+                            path: soundObject.audioPath,
+                            imagePath: soundObject.imagePath
+                        }));
+
+                        const paths = soundObjectsList.map(s => s.audioPath);
+                        const fileNames = soundObjectsList.map(s => s.audioName);
+                        let load = {
+                            dir: Main.currentDir,
+                            paths: paths,
+                            fileNames: fileNames
+                        };
+                        event.sender.send('APP_listedFiles', load);
+                    }
+
+                    return { success: true };
+                } catch (error) {
+                    console.error("Error deleting sound:", error);
+                    return { error: 'Failed to delete files' };
+                }
+            }
+            return { success: false, cancelled: true };
+        });
+    }
+
         
 
     static main(app: Electron.App, browserWindow: typeof BrowserWindow) {
@@ -616,6 +692,7 @@ export default class Main {
         this.listenerClose()
         this.listenerMin()
         this.listenerRecording()
+        this.listenerDeleteSound()
         this.listenerListFiles()
         this.listenerVersion()
         this.listenerWebUI()
