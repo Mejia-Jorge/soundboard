@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { jest, test, expect } from '@jest/globals';
+import '@testing-library/jest-dom';
 import Pad from './pad';
 
 test('renders pad with delete button', () => {
@@ -44,8 +45,6 @@ test('renders pad with delete button', () => {
   );
 
   const deleteButton = screen.getByTitle('Delete Sound');
-  // @ts-ignore
   expect(deleteButton).toBeInTheDocument();
-  // @ts-ignore
   expect(deleteButton).toHaveClass('delete-btn');
 });

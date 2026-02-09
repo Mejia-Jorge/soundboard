@@ -26,7 +26,7 @@
     "react-start": "set BROWSER=none && npm run compile | react-scripts start",
     "start": "concurrently 'npm run react-start' 'wait-on http://localhost:3000 && electron build/electron.cjs'",
     "winStart": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\\build\\electron.cjs\"",
-    "electron-build": "npm run build && electron-builder --npm",
+    "electron-build": "npm run build && electron-builder",
     "compile": "tsc -p tsconfig.electron.json && powershell -Command \"if (Test-Path build/electron.js) { Move-Item -Path build/electron.js -Destination build/electron.cjs -Force }; if (Test-Path build/preload.js) { Move-Item -Path build/preload.js -Destination build/preload.cjs -Force }\"",
     "compile-watch": "tsc -p tsconfig.electron.json -w",
     "build": "react-scripts build && npm run compile",
