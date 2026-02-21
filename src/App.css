@@ -9,8 +9,10 @@ html {
 
 body {
     font-size: 12px;
-    background-color: #2e3440;
-    color: rgb(37, 57, 94);
+    background: radial-gradient(circle at top left, #2e3440, #1a1c23);
+    color: #eceff4;
+    min-height: 100vh;
+    margin: 0;
 }
 
 h2 {
@@ -46,14 +48,16 @@ header {
 
 .pad {
     word-break: break-word;
-    background-color: #8fbcbb;
-    border: none;
-    border-radius: 10px 10px 0 0;
+    background-color: rgba(143, 188, 187, 0.2);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px 12px 0 0;
     color: white;
     padding: 10px;
     width: 140px;
     height: 70px;
     box-sizing: border-box;
+    transition: all 0.3s ease;
 }
 
 .pad-container {
@@ -68,8 +72,11 @@ header {
     flex-direction: row;
     width: 140px;
     height: 20px;
-    background: #3b4252;
-    border-radius: 0 0 10px 10px;
+    background: rgba(59, 66, 82, 0.4);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
     overflow: hidden;
 }
 
@@ -162,24 +169,30 @@ button:active {
 }
 
 .pad:hover {
-    background-color: #d08770;
-    
+    background-color: rgba(208, 135, 112, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .pad:active {
-    background-color:#af7360 ;
+    background-color: rgba(175, 115, 96, 0.6);
+    transform: translateY(0);
 }
 
 .pad.playing {
-    background-color: #a3be8c;
+    background-color: rgba(163, 190, 140, 0.6);
+    box-shadow: 0 0 20px rgba(163, 190, 140, 0.4);
 }
 
 
 #controller {
     display: block;
-    padding: 0px;
-    margin: 30px;
-    padding-top: 2em;
+    padding: 40px;
+    margin: 0;
+    padding-top: 4em;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 
@@ -187,29 +200,34 @@ button:active {
 #pads {
     display: flex;
     flex-flow: row wrap;
-    column-gap: 10px;
-    row-gap: 10px;
+    column-gap: 20px;
+    row-gap: 20px;
     
 
     justify-content: center;
-    border: solid rgba(255, 255, 255, 0.356) 1px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
     margin: 30px;
     margin-left: 0;
     margin-right: 0;
-    padding: 30px;
+    padding: 40px;
 }
 
 
 #config {
-    margin-bottom: 2em;
     display: flex;
     column-gap: 10px;
     flex-flow: column wrap;
     margin-top: 0;
     margin-bottom: 0;
-    border: solid rgba(255, 255, 255, 0.356) 1px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 16px;
     padding: 30px;
     row-gap: 10px;
     grid-column-start: 1;
@@ -251,8 +269,11 @@ option {
     flex-flow: column;
     justify-content: space-around;
     padding: 30px;
-    border: solid rgba(255, 255, 255, 0.356) 1px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 16px;
     
 }
 
@@ -281,9 +302,10 @@ option {
 }
 #settings {
     display: grid;
-    grid-template-columns: auto auto 30% 200px 200px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     grid-template-rows: auto;
-    column-gap: 25px;
+    gap: 25px;
+    margin-bottom: 40px;
 }
 
 #recorder {
@@ -292,8 +314,11 @@ option {
     justify-content: center;
     row-gap: 25px;
     padding: 30px;
-    border: solid rgba(255, 255, 255, 0.356) 1px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 16px;
 }
 
 .status-header {
@@ -340,8 +365,11 @@ option {
     justify-content: center;
     row-gap: 10px;
     padding: 30px;
-    border: solid rgba(255, 255, 255, 0.356) 1px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 16px;
 }
 
 #toggle-soundboard button {
